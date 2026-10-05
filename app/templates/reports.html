@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block title %}{{ app_name }} — گزارش‌ها{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>گزارش‌ها</h1>
+    <p>ترافیک {{ days | fa }} روز گذشته — {{ totals.traffic | human_bytes }} مجموع مصرف از ابتدا</p>
+  </div>
+  <div class="head-actions">
+    <div class="segment">
+      {% for option in [1, 7, 30, 90] %}
+      <a class="{{ 'active' if days == option }}" href="/reports?days={{ option }}">{{ option | fa }} روز</a>
+      {% endfor %}
+    </div>
+    <a class="btn" href="/reports/export.csv?days={{ days }}">خروجی CSV</a>
+  </div>
+</div>
+
+<div class="kpi-grid">
+  <div class="card kpi"><div class="kpi-icon blue">◔</div><div><b>{{ totals.traffic | human_bytes }}</b><small>ترافیک کل</small></div></div>
+  <div class="card kpi"><div class="kpi-icon purple">♙</div><div><b>{{ totals.users | fa }}</b><small>کاربران</small></div></div>
+  <div class="card kpi"><div class="kpi-icon green">▤</div><div><b>{{ totals.nodes_online | fa }}/{{ totals.nodes_total | fa }}</b><small>سرورهای آنلاین</small></div></div>
+  <div class="card kpi"><div class="kpi-icon yellow">◷</div><div><b>{{ totals.users_online | fa }}</b><small>کاربر آنلاین</small></div></div>
+</div>
+
+<section class="card card-block" style="margin-bottom:20px">
+  <header><h3>نمودار مصرف</h3><span class="spacer"></span><span class="small muted">{{ days | fa }} روز اخیر</span></header>
+  <div class="chart-wrap" style="height:260px">
+    <div class="ylabels" id="trafficYLabels"></div>
+    <svg class="chart-svg" id="trafficChart" viewBox="0 0 600 190" preserveAspectRatio="none" style="height:200px"></svg>
+    <div class="xlabels" id="trafficXLabels"></div>
+  </div>
+</section>
+
+<div class="grid-2">
+  <section class="card card-block">
+    <header><h3>پر مصرف‌ترین کاربران</h3></header>
+    <div class="table-wrap" style="border:0;background:transparent">
+      <table class="data" style="min-width:0">
+        <thead><tr><th>کاربر</th><th>مصرف</th><th>سهم از حجم</th></tr></thead>
+        <tbody>
+          {% for user, total in top_users %}
+          <tr>
+            <td><a class="cell-title mono" href="/users/{{ user.id }}/links">{{ user.username }}</a><div class="cell-sub">{{ user.display_name or '' }}</div></td>
+            <td>{{ total | human_bytes }}</td>
+            <td style="width:130px">
+              <div class="progress"><span style="width:{{ user.usage_percent }}%"></span></div>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="3"><div class="empty">داده‌ای برای نمایش نیست.</div></td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="card card-block">
+    <header><h3>ترافیک سرورها</h3></header>
+    <div class="stack" style="gap:14px">
+      {% for node in nodes %}
+      <div>
+        <div class="row between small"><span>{{ node.flag }} {{ node.name }}</span><span>{{ (node.traffic_up + node.traffic_down) | human_bytes }}</span></div>
+        <div class="progress" style="margin-top:7px"><span style="width:{{ node.traffic_bar }}%"></span></div>
+      </div>
+      {% else %}
+      <div class="empty">سروری ثبت نشده است.</div>
+      {% endfor %}
+    </div>
+  </section>
+</div>
+
+<section class="card card-block" style="margin-top:20px">
+  <header><h3>گزارش رخدادها</h3></header>
+  <div class="table-wrap" style="border:0;background:transparent">
+    <table class="data" style="min-width:0">
+      <thead><tr><th style="width:150px">زمان</th><th style="width:120px">کاربر</th><th style="width:110px">نوع</th><th>پیام</th><th style="width:90px">IP</th></tr></thead>
+      <tbody>
+        {% for log in activities %}
+        <tr>
+          <td class="small">{{ log.created_at | short_date('%Y-%m-%d %H:%M') }}</td>
+          <td class="mono small">{{ log.actor }}</td>
+          <td><span class="pill {{ 'green' if log.level == 'ok' else ('red' if log.level == 'error' else ('yellow' if log.level == 'warn' else 'gray')) }}">{{ log.kind }}</span></td>
+          <td>{{ log.message }}</td>
+          <td class="mono small">{{ log.ip or '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  window.__TITAN_CHART__ = { series: {{ series | tojson }} };
+</script>
+{% endblock %}

@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}{{ app_name }} — لینک‌های کانفیگ{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>{% if inbound %}لینک‌های «{{ inbound.name }}»{% else %}کانفیگ پیدا نشد{% endif %}</h1>
+    {% if inbound %}
+    <p>{{ inbound.node.flag }} {{ inbound.node.name }} · {{ inbound.protocol.value.upper() }}/{{ inbound.transport.value.upper() }}/{{ inbound.security.value.upper() }}
+      · {{ rows | length | fa }} کاربر</p>
+    {% endif %}
+  </div>
+  <div class="head-actions">
+    <a class="btn ghost" href="/inbounds">بازگشت</a>
+  </div>
+</div>
+
+{% if inbound %}
+<div class="table-wrap">
+  <table class="data">
+    <thead><tr><th>کاربر</th><th>وضعیت</th><th>لینک</th><th style="width:120px"></th></tr></thead>
+    <tbody>
+      {% for row in rows %}
+      <tr>
+        <td><div class="cell-title mono">{{ row.user.username }}</div><div class="cell-sub">{{ row.user.display_name or '—' }}</div></td>
+        <td><span class="pill {{ 'green' if row.user.status.value == 'active' else 'red' }}">{{ row.user.status.value }}</span></td>
+        <td><div class="code-row"><code>{{ row.link }}</code></div></td>
+        <td class="actions">
+          <div class="row" style="gap:6px;justify-content:flex-end">
+            <button class="icon-btn" data-copy="{{ row.link }}" title="کپی">⧉</button>
+            <a class="icon-btn" href="/users/{{ row.user.id }}/links" title="جزئیات">↗</a>
+          </div>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="4"><div class="empty">کاربری به این کانفیگ وصل نیست.</div></td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+{% endblock %}

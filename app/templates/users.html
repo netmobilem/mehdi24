@@ -1,0 +1,207 @@
+{% extends "base.html" %}
+{% block title %}{{ app_name }} — کاربران{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>کاربران</h1>
+    <p>{{ total | fa }} کاربر ثبت شده — {{ counters.users_online | fa }} کاربر در ۳ دقیقه‌ی گذشته آنلاین بوده‌اند</p>
+  </div>
+  <div class="head-actions">
+    <form method="get" class="row" style="gap:8px">
+      <input type="search" name="q" value="{{ q }}" placeholder="جستجوی نام کاربری، ایمیل یا یادداشت…" style="width:280px;height:38px" />
+      <select name="status" style="width:150px;height:38px">
+        <option value="">همه وضعیت‌ها</option>
+        {% for st in ['active','disabled','expired','limited','onhold'] %}
+        <option value="{{ st }}" {{ 'selected' if status_filter == st }}>{{ st }}</option>
+        {% endfor %}
+      </select>
+      <button class="btn sm" type="submit">فیلتر</button>
+    </form>
+    <button class="btn primary" data-modal-open="userCreateModal">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14"/></svg>
+      کاربر جدید
+    </button>
+  </div>
+</div>
+
+<div class="table-wrap">
+  <table class="data">
+    <thead>
+      <tr>
+        <th style="width:210px">کاربر</th>
+        <th>وضعیت</th>
+        <th style="width:190px">مصرف</th>
+        <th>انقضا</th>
+        <th>آخرین اتصال</th>
+        <th>IP</th>
+        <th>کانفیگ‌ها</th>
+        <th style="width:190px"></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for user in users %}
+      <tr>
+        <td>
+          <div class="cell-title mono">{{ user.username }}</div>
+          <div class="cell-sub">{{ user.display_name or user.email or '—' }}</div>
+        </td>
+        <td>
+          {% set cls = {'active':'green','disabled':'gray','expired':'red','limited':'yellow','onhold':'blue'} %}
+          <span class="pill {{ cls.get(user.status.value,'gray') }}"><span class="badge-dot"></span>{{ user.status.value }}</span>
+        </td>
+        <td>
+          <div class="row between" style="margin-bottom:6px">
+            <span class="small">{{ user.used | human_bytes }}</span>
+            <span class="small muted">{{ (user.data_limit | human_bytes) if user.data_limit else 'نامحدود' }}</span>
+          </div>
+          <div class="progress"><span class="{{ 'crit' if user.usage_percent > 85 else ('warn' if user.usage_percent > 60 else '') }}" style="width:{{ user.usage_percent }}%"></span></div>
+        </td>
+        <td>{{ user.expire_at | short_date if user.expire_at else 'بدون انقضا' }}{% if user.days_left is not none %}<div class="cell-sub">{{ user.days_left | fa }} روز باقی‌مانده</div>{% endif %}</td>
+        <td>{{ user.last_online_at | time_ago if user.last_online_at else '—' }}</td>
+        <td class="mono small">{{ user.last_ip or '—' }}</td>
+        <td><span class="pill purple">{{ user.clients | length | fa }}</span></td>
+        <td class="actions">
+          <div class="row" style="gap:6px;justify-content:flex-end">
+            <a class="icon-btn" href="/users/{{ user.id }}/links" title="لینک‌ها و QR">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M10 13a5 5 0 0 0 7.5.5l2-2A5 5 0 0 0 12.5 4.5l-1 1"/><path d="M14 11a5 5 0 0 0-7.5-.5l-2 2A5 5 0 0 0 11.5 19.5l1-1"/></svg>
+            </a>
+            <button class="icon-btn" data-modal-fill="userEditModal" data-payload='{{ {"user_id": user.id, "display_name": user.display_name, "note": user.note, "limit_value": (user.data_limit / 1073741824)|round(2), "limit_unit": "GB", "ip_limit": user.ip_limit, "speed_limit": user.speed_limit, "expire_days": user.days_left or 0} | tojson }}' title="ویرایش">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 20h4l10-10-4-4L4 16v4Z"/><path d="m14 6 4 4"/></svg>
+            </button>
+            <button class="icon-btn" data-action="/users/{{ user.id }}/reset" data-confirm="مصرف این کاربر صفر شود؟" title="ریست مصرف">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M20 11a8 8 0 0 0-14.8-4L3 10"/><path d="M3 5v5h5M4 13a8 8 0 0 0 14.8 4L21 14"/><path d="M21 19v-5h-5"/></svg>
+            </button>
+            <button class="icon-btn" data-action="/users/{{ user.id }}/toggle" title="{{ 'فعال‌سازی' if user.status.value == 'disabled' else 'غیرفعال‌سازی' }}">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M7 12h10"/><circle cx="12" cy="12" r="9"/></svg>
+            </button>
+            <button class="icon-btn danger" data-action="/users/{{ user.id }}/delete" data-confirm="کاربر {{ user.username }} حذف شود؟" title="حذف">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M5 7h14M9 7V4.5h6V7M6.5 7l.8 12h9.4l.8-12"/></svg>
+            </button>
+          </div>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="8"><div class="empty">کاربری یافت نشد — با دکمه‌ی «کاربر جدید» شروع کنید.</div></td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if pages > 1 %}
+<div class="row" style="justify-content:center;margin-top:18px;gap:8px">
+  {% for p in range(1, pages + 1) %}
+  <a class="btn sm {{ 'primary' if p == page }}" href="?page={{ p }}&q={{ q }}&status={{ status_filter }}">{{ p | fa }}</a>
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}
+
+{% block modals %}
+<div class="modal" id="userCreateModal" hidden>
+  <header>
+    <h2>افزودن کاربر / کانفیگ</h2>
+    <button class="modal-close" data-modal-close>✕</button>
+  </header>
+  <form data-ajax action="/users/create" method="post">
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="field"><label>نام کاربری <span class="req">*</span></label><input type="text" name="username" placeholder="مثلا ali" required /></div>
+        <div class="field"><label>نام نمایشی</label><input type="text" name="display_name" placeholder="مثلا علی رضایی" /></div>
+        <div class="field"><label>ایمیل / برچسب</label><input type="text" name="email" placeholder="ali@example.com" /></div>
+        <div class="field">
+          <label>سرور <span class="hint">خودکار = نزدیک‌ترین نود از نظر پینگ</span></label>
+          <select name="node_id">
+            <option value="0">خودکار — نزدیک‌ترین نود</option>
+            {% for node in nodes %}<option value="{{ node.id }}">{{ node.flag }} {{ node.name }} ({{ node.ping_ms | fa }}ms)</option>{% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <div class="section-title">کانفیگ‌ها</div>
+      <div class="form-grid">
+        <div class="field full">
+          <label>کانفیگ‌های اختصاصی <span class="hint">اگر خالی بماند، خودکار انتخاب می‌شود</span></label>
+          <select name="inbound_ids" multiple size="5">
+            {% for inbound in inbounds %}
+            <option value="{{ inbound.id }}">{{ inbound.node.flag }} {{ inbound.node.name }} — {{ inbound.protocol.value.upper() }}/{{ inbound.transport.value.upper() }} ({{ inbound.name }})</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="field">
+          <label>Flow</label>
+          <select name="flow"><option value="">بدون flow</option><option value="xtls-rprx-vision">xtls-rprx-vision</option></select>
+        </div>
+        <div class="field">
+          <label>چرخه‌ی ریست مصرف</label>
+          <select name="reset_strategy">{% for rs in reset_strategies %}<option value="{{ rs }}" {{ 'selected' if rs == 'monthly' }}>{{ rs }}</option>{% endfor %}</select>
+        </div>
+      </div>
+
+      <div class="section-title">محدودیت‌ها</div>
+      <div class="form-grid">
+        <div class="field">
+          <label>حجم</label>
+          <div class="input-group">
+            <input type="number" name="limit_value" value="0" min="0" step="0.1" />
+            <select name="limit_unit" style="width:96px"><option value="GB">GB</option><option value="MB">MB</option><option value="TB">TB</option></select>
+          </div>
+          <span class="hint">۰ = نامحدود</span>
+        </div>
+        <div class="field"><label>حد دستگاه (IP هم‌زمان)</label><input type="number" name="ip_limit" value="0" min="0" /><span class="hint">۰ = نامحدود</span></div>
+        <div class="field"><label>حد سرعت (Mbps)</label><input type="number" name="speed_limit" value="0" min="0" /><span class="hint">۰ = نامحدود — با shaping هسته اعمال می‌شود</span></div>
+        <div class="field"><label>مدت اعتبار (روز)</label><input type="number" name="expire_days" value="0" min="0" /><span class="hint">۰ = بدون انقضا</span></div>
+        <div class="field full"><label>یادداشت</label><textarea name="note" placeholder="IPهای مجاز، توضیح مشتری، …"></textarea></div>
+      </div>
+    </div>
+    <footer>
+      <button class="btn primary" type="submit">ذخیره</button>
+      <button class="btn ghost" type="button" data-modal-close>انصراف</button>
+    </footer>
+  </form>
+</div>
+
+<div class="modal" id="userEditModal" hidden>
+  <header>
+    <h2>ویرایش کاربر</h2>
+    <button class="modal-close" data-modal-close>✕</button>
+  </header>
+  <form data-ajax id="userEditForm" method="post">
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="field"><label>نام نمایشی</label><input type="text" name="display_name" /></div>
+        <div class="field">
+          <label>حجم</label>
+          <div class="input-group">
+            <input type="number" name="limit_value" min="0" step="0.1" />
+            <select name="limit_unit" style="width:96px"><option value="GB">GB</option><option value="MB">MB</option><option value="TB">TB</option></select>
+          </div>
+        </div>
+        <div class="field"><label>حد دستگاه (IP)</label><input type="number" name="ip_limit" min="0" /></div>
+        <div class="field"><label>حد سرعت (Mbps)</label><input type="number" name="speed_limit" min="0" /></div>
+        <div class="field"><label>تمدید اعتبار (روز)</label><input type="number" name="expire_days" min="0" /></div>
+        <div class="field"><label>حذف تاریخ انقضا</label><label class="switch"><input type="checkbox" name="clear_expiry" value="1" /><span class="track"></span><span>بدون انقضا شود</span></label></div>
+        <div class="field full"><label>یادداشت</label><textarea name="note"></textarea></div>
+      </div>
+    </div>
+    <footer>
+      <button class="btn primary" type="submit">ذخیره</button>
+      <button class="btn ghost" type="button" data-modal-close>انصراف</button>
+    </footer>
+  </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // point the edit form at the row that was clicked
+  document.addEventListener("click", function (event) {
+    const trigger = event.target.closest("[data-modal-fill='userEditModal']");
+    if (!trigger) return;
+    try {
+      const payload = JSON.parse(trigger.getAttribute("data-payload"));
+      document.getElementById("userEditForm").action = "/users/" + payload.user_id + "/update";
+    } catch (e) {}
+  });
+</script>
+{% endblock %}

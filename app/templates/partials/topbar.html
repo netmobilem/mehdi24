@@ -1,0 +1,56 @@
+{# ── TiTaN topbar — reference-design markup, wired to real data ── #}
+<header class="topbar">
+  <button class="mobile-menu" id="menuBtn" aria-label="Open menu">☰</button>
+  <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 4.2 4.2"/></svg><input id="globalSearch" placeholder="جستجو..." autocomplete="off"/><kbd>Ctrl + K</kbd></div>
+  <div class="top-actions">
+    <div class="pop-anchor">
+      <button class="action" id="notifyBtn" title="اعلان‌ها">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg>
+        {% if unread_notifications %}<span class="dot"></span>{% endif %}
+      </button>
+      <div class="dropdown notifications" id="notifyPop">
+        <div class="dropdown-head">اعلان‌ها</div>
+        <div class="dropdown-body">
+          {% for item in notifications %}
+          <div class="notif-row level-{{ item.level }}">
+            <strong>{{ item.title }}</strong>
+            <small>{{ item.body }}</small>
+            <span class="notif-time">{{ item.created_at | time_ago }}</span>
+          </div>
+          {% else %}
+          <div class="empty-mini">اعلان جدیدی ندارید</div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <button class="action" id="refreshBtn" title="بروزرسانی"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M20 11a8 8 0 0 0-14.8-4L3 10"/><path d="M3 5v5h5M4 13a8 8 0 0 0 14.8 4L21 14"/><path d="M21 19v-5h-5"/></svg></button>
+
+    <div class="pop-anchor">
+      <button class="action" id="contactBtn" title="ارتباط با ما"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="13.5" rx="2.5"/><path d="M8 20l2.2-2h7.3"/><circle cx="9" cy="11.5" r=".8" fill="currentColor" stroke="none"/><circle cx="12" cy="11.5" r=".8" fill="currentColor" stroke="none"/><circle cx="15" cy="11.5" r=".8" fill="currentColor" stroke="none"/></svg></button>
+      <div class="dropdown contact-menu" id="contactPop">
+        <div class="dropdown-head">ارتباط با ما</div>
+        <a class="contact-item" href="{{ links.github }}" target="_blank" rel="noopener"><span class="contact-icon">GH</span><span><strong>گیت‌هاب پروژه</strong><small>مشاهده کد منبع پروژه</small></span><span class="external">↗</span></a>
+        <a class="contact-item" href="{{ links.support }}" target="_blank" rel="noopener"><span class="contact-icon telegram">➤</span><span><strong>تلگرام پشتیبانی</strong><small>{{ links.support_label }}</small></span><span class="external">↗</span></a>
+        <a class="contact-item" href="{{ links.bot }}" target="_blank" rel="noopener"><span class="contact-icon telegram">➤</span><span><strong>بات تلگرام</strong><small>شروع گفتگو با بات</small></span><span class="external">↗</span></a>
+      </div>
+    </div>
+
+    <span class="divider"></span>
+
+    <div class="pop-anchor">
+      <div class="profile" id="profileBtn">
+        <div class="profile-text"><div class="profile-name">{{ admin.username if admin else app_name }}</div><div class="profile-role">{{ admin.role_label if admin else 'مدیر کل' }}</div></div>
+        <div class="avatar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 3 19 7v10l-7 4-7-4V7l7-4Z"/><path d="M12 7v10M7.5 9.5 12 12l4.5-2.5"/></svg></div>
+        <span class="chevron">⌄</span>
+      </div>
+      <div class="dropdown profile-menu" id="profilePop">
+        <a href="/settings">تنظیمات پنل</a>
+        <a href="/admins">مدیریت ادمین‌ها</a>
+        <a href="/reports">گزارش‌ها</a>
+        <div class="sep"></div>
+        <a href="/logout" class="danger">خروج از حساب</a>
+      </div>
+    </div>
+  </div>
+</header>

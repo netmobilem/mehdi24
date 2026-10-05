@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}{{ app_name }} — تنظیمات{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>تنظیمات</h1>
+    <p>تنظیمات پنل، امنیت، مسیر داده‌ها و وضعیت سرویس‌های پس‌زمینه</p>
+  </div>
+</div>
+
+<div class="grid-2">
+  <section class="card card-block">
+    <header><h3>تنظیمات عمومی</h3></header>
+    <form data-ajax action="/settings/save" method="post">
+      <div class="form-grid">
+        <div class="field"><label>عنوان اشتراک‌ها (پیش‌فرض)</label><input type="text" name="sub_title" value="{{ panel_settings.sub_title }}" /></div>
+        <div class="field"><label>آدرس دامنه‌ی اشتراک</label><input type="text" name="decoy_url" value="{{ panel_settings.decoy_url }}" placeholder="https://example.com" /></div>
+        <div class="field full"><label>اعلان صفحه‌ی اشتراک</label><textarea name="sub_announcement">{{ panel_settings.sub_announcement }}</textarea></div>
+        <div class="field"><label>Flow پیش‌فرض</label><input type="text" name="default_flow" value="{{ panel_settings.default_flow }}" /></div>
+        <div class="field"><label>پورت پیش‌فرض ایجنت</label><input type="number" name="agent_port" value="{{ panel_settings.agent_port }}" /></div>
+        <div class="field"><label>اولین پورت داخلی Xray</label><input type="number" name="first_internal_port" value="{{ panel_settings.first_internal_port }}" /></div>
+        <div class="field"><label class="switch"><input type="checkbox" name="auto_deploy" value="1" {{ 'checked' if panel_settings.auto_deploy == '1' }} /><span class="track"></span><span>استقرار خودکار تغییرات روی نودها</span></label></div>
+        <div class="field"><label class="switch"><input type="checkbox" name="ip_limit_strict" value="1" {{ 'checked' if panel_settings.ip_limit_strict == '1' }} /><span class="track"></span><span>اعمال سخت‌گیرانه‌ی محدودیت IP</span></label></div>
+      </div>
+      <div class="row" style="margin-top:16px;gap:10px">
+        <button class="btn primary" type="submit">ذخیره تنظیمات</button>
+        <button class="btn ghost" type="button" data-action="/settings/notify-check">ارسال اعلان آزمایشی</button>
+        <button class="btn ghost" type="button" data-action="/settings/mark-read">خواندن همه‌ی اعلان‌ها</button>
+      </div>
+    </form>
+  </section>
+
+  <div class="stack">
+    <section class="card card-block">
+      <header><h3>تغییر رمز عبور</h3></header>
+      <form data-ajax action="/change-password" method="post">
+        <div class="form-grid">
+          <div class="field"><label>رمز فعلی</label><input type="password" name="current_password" required /></div>
+          <div class="field"><label>رمز جدید</label><input type="password" name="new_password" required minlength="6" /></div>
+        </div>
+        <button class="btn primary" type="submit" style="margin-top:14px">تغییر رمز</button>
+      </form>
+    </section>
+
+    <section class="card card-block">
+      <header><h3>محیط اجرا</h3></header>
+      <div class="table-wrap" style="border:0;background:transparent">
+        <table class="data" style="min-width:0">
+          <tbody>
+            <tr><td class="muted">دامنه‌ی پنل</td><td class="mono">{{ env.panel_domain }}</td></tr>
+            <tr><td class="muted">مسیر داده‌ها</td><td class="mono">{{ env.data_dir }}</td></tr>
+            <tr><td class="muted">حالت متریک نود</td><td class="mono">{{ env.metrics_mode }}</td></tr>
+            <tr><td class="muted">پورت ایجنت / API</td><td class="mono">{{ env.agent_port | fa }} / {{ env.api_port | fa }}</td></tr>
+            <tr><td class="muted">ربات تلگرام</td><td>{{ 'تنظیم شده' if env.telegram_configured else 'تنظیم نشده' }}</td></tr>
+            <tr><td class="muted">IPهای مجاز پنل</td><td class="mono">{{ env.allowed_ips | join(', ') if env.allowed_ips else 'همه' }}</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card card-block">
+      <header><h3>وضعیت کارگرهای پس‌زمینه</h3></header>
+      <div class="table-wrap" style="border:0;background:transparent">
+        <table class="data" style="min-width:0">
+          <thead><tr><th>کارگر</th><th>فاصله</th><th>آخرین اجرا</th></tr></thead>
+          <tbody>
+            <tr><td>سلامت نودها</td><td>۲۰ ثانیه</td><td class="mono small">{{ workers.health }}</td></tr>
+            <tr><td>جمع‌آوری ترافیک</td><td>۱۵ ثانیه</td><td class="mono small">{{ workers.stats }}</td></tr>
+            <tr><td>اعمال محدودیت‌ها</td><td>۶۰ ثانیه</td><td class="mono small">{{ workers.enforce }}</td></tr>
+            <tr><td>استقرار خودکار</td><td>۳۰ ثانیه</td><td class="mono small">{{ workers.deploy }}</td></tr>
+            <tr><td>نگهداری</td><td>۱ ساعت</td><td class="mono small">{{ workers.maintenance }}</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,229 @@
+{% extends "base.html" %}
+{% block title %}{{ app_name }} — کانفیگ‌ها{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>کانفیگ‌ها</h1>
+    <p>{{ inbounds | length | fa }} سرویس پروتکل روی {{ nodes | length | fa }} سرور — هر کانفیگ با یک ضربه روی نود مستقر می‌شود</p>
+  </div>
+  <div class="head-actions">
+    <form method="get" class="row" style="gap:8px">
+      <select name="node_id" style="width:190px;height:38px">
+        <option value="0">همه‌ی سرورها</option>
+        {% for node in nodes %}<option value="{{ node.id }}" {{ 'selected' if node_filter == node.id }}>{{ node.flag }} {{ node.name }}</option>{% endfor %}
+      </select>
+      <select name="protocol" style="width:150px;height:38px">
+        <option value="">همه‌ی پروتکل‌ها</option>
+        {% for p in protocols %}<option value="{{ p }}" {{ 'selected' if protocol_filter == p }}>{{ p.upper() }}</option>{% endfor %}
+      </select>
+      <button class="btn sm" type="submit">فیلتر</button>
+    </form>
+    <button class="btn primary" data-modal-open="inboundCreateModal">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14"/></svg>
+      کانفیگ جدید
+    </button>
+  </div>
+</div>
+
+<div class="table-wrap">
+  <table class="data">
+    <thead>
+      <tr>
+        <th>کانفیگ</th>
+        <th>سرور</th>
+        <th>پروتکل</th>
+        <th>ترابری / امنیت</th>
+        <th>پورت</th>
+        <th>مسیر</th>
+        <th>کاربران</th>
+        <th>وضعیت</th>
+        <th style="width:190px"></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for inbound in inbounds %}
+      <tr>
+        <td>
+          <div class="cell-title">{{ inbound.name }}</div>
+          <div class="cell-sub mono">{{ inbound.tag or ('inbound-' ~ inbound.id) }} · internal :{{ inbound.internal_port }}</div>
+        </td>
+        <td>{{ inbound.node.flag }} {{ inbound.node.name }}<div class="cell-sub">{{ inbound.node.address }}</div></td>
+        <td><span class="pill purple">{{ inbound.protocol.value.upper() }}</span></td>
+        <td><span class="pill blue">{{ inbound.transport.value.upper() }}</span> <span class="pill gray">{{ inbound.security.value.upper() }}</span></td>
+        <td class="mono">{{ inbound.port | fa }}</td>
+        <td class="mono small">{{ inbound.path }}</td>
+        <td><span class="pill gray">{{ inbound.clients_count | fa }}</span></td>
+        <td>
+          {% if inbound.is_active %}<span class="pill green"><span class="badge-dot"></span>فعال</span>
+          {% else %}<span class="pill red"><span class="badge-dot"></span>غیرفعال</span>{% endif %}
+        </td>
+        <td class="actions">
+          <div class="row" style="gap:6px;justify-content:flex-end">
+            <button class="icon-btn" data-action="/inbounds/{{ inbound.id }}/deploy" title="استقرار روی نود">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 3v12"/><path d="m7.5 10.5 4.5 4.5 4.5-4.5"/><path d="M4 21h16"/></svg>
+            </button>
+            <a class="icon-btn" href="/inbounds/{{ inbound.id }}/links" title="لینک‌های کاربران">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M10 13a5 5 0 0 0 7.5.5l2-2A5 5 0 0 0 12.5 4.5l-1 1"/><path d="M14 11a5 5 0 0 0-7.5-.5l-2 2A5 5 0 0 0 11.5 19.5l1-1"/></svg>
+            </a>
+            <button class="icon-btn" data-modal-fill="inboundEditModal" data-payload='{{ {"inbound_id": inbound.id, "name": inbound.name, "port": inbound.port, "path": inbound.path, "sni": inbound.sni, "host": inbound.host_header, "alpn": inbound.alpn, "fingerprint": inbound.fingerprint, "xhttp_mode": inbound.xhttp_mode.value, "note": inbound.note} | tojson }}' title="ویرایش">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 20h4l10-10-4-4L4 16v4Z"/><path d="m14 6 4 4"/></svg>
+            </button>
+            <button class="icon-btn" data-action="/inbounds/{{ inbound.id }}/toggle" title="فعال/غیرفعال">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M7 12h10"/><circle cx="12" cy="12" r="9"/></svg>
+            </button>
+            <button class="icon-btn danger" data-action="/inbounds/{{ inbound.id }}/delete" data-confirm="کانفیگ {{ inbound.name }} حذف شود؟" title="حذف">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M5 7h14M9 7V4.5h6V7M6.5 7l.8 12h9.4l.8-12"/></svg>
+            </button>
+          </div>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="9"><div class="empty">هیچ کانفیگی وجود ندارد — یک سرور بسازید و سپس کانفیگ اضافه کنید.</div></td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}
+
+{% block modals %}
+<div class="modal wide" id="inboundCreateModal" hidden>
+  <header>
+    <h2>افزودن کانفیگ / پروتکل</h2>
+    <button class="modal-close" data-modal-close>✕</button>
+  </header>
+  <form data-ajax action="/inbounds/create" method="post">
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="field"><label>نام کانفیگ</label><input type="text" name="name" placeholder="مثلا VLESS-Main" /></div>
+        <div class="field">
+          <label>سرور <span class="req">*</span></label>
+          <select name="node_id" required>
+            {% for node in nodes %}<option value="{{ node.id }}">{{ node.flag }} {{ node.name }} — {{ node.address }}</option>{% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <div class="section-title">پروتکل و ترابری</div>
+      <div class="form-grid">
+        <div class="field">
+          <label>پروتکل</label>
+          <select name="protocol" id="protocolField">
+            <option value="vless">VLESS</option>
+            <option value="vmess">VMess</option>
+            <option value="trojan">TROJAN</option>
+            <option value="shadowsocks">SHADOWSOCKS</option>
+            <option value="hysteria2">HYSTERIA2 (UDP/QUIC)</option>
+            <option value="wireguard">WIREGUARD</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>ترابری</label>
+          <select name="transport">
+            <option value="ws">WS (WebSocket)</option>
+            <option value="xhttp">XHTTP</option>
+            <option value="grpc">GRPC</option>
+            <option value="tcp">TCP</option>
+            <option value="httpupgrade">HTTPUPGRADE</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>امنیت</label>
+          <select name="security">
+            <option value="tls">TLS (گواهی Nginx)</option>
+            <option value="reality">REALITY</option>
+            <option value="none">بدون TLS</option>
+          </select>
+        </div>
+        <div class="field" data-show-when="transport=xhttp">
+          <label>حالت XHTTP</label>
+          <select name="xhttp_mode">{% for m in xhttp_modes %}<option value="{{ m }}">{{ m }}</option>{% endfor %}</select>
+        </div>
+        <div class="field"><label>پورت عمومی</label><input type="number" name="port" value="443" min="1" max="65535" /></div>
+        <div class="field"><label>پورت داخلی (اختیاری)</label><input type="number" name="internal_port" placeholder="خودکار" min="1" max="65535" /></div>
+        <div class="field"><label>مسیر (path)</label><input type="text" name="path" placeholder="/titan/ws" /></div>
+        <div class="field"><label>SNI / دامنه</label><input type="text" name="sni" placeholder="دامنه‌ی نود" /></div>
+        <div class="field"><label>Host هدر</label><input type="text" name="host" placeholder="دامنه‌ی نود" /></div>
+        <div class="field"><label>ALPN</label><input type="text" name="alpn" placeholder="http/1.1 یا h2,http/1.1" /></div>
+        <div class="field">
+          <label>Fingerprint (uTLS)</label>
+          <select name="fingerprint">
+            <option>chrome</option><option>firefox</option><option>safari</option><option>ios</option>
+            <option>android</option><option>edge</option><option>360</option><option>qq</option>
+            <option>random</option><option>randomized</option>
+          </select>
+        </div>
+        <div class="field" data-show-when="protocol=vless,vmess">
+          <label>Flow</label>
+          <select name="flow"><option value="">بدون flow</option><option value="xtls-rprx-vision">xtls-rprx-vision</option></select>
+        </div>
+        <div class="field" data-show-when="protocol=shadowsocks">
+          <label>رمز Shadowsocks <span class="hint">خالی = تولید خودکار ۲۰۲۲</span></label>
+          <input type="text" name="password" placeholder="خودکار" />
+        </div>
+        <div class="field" data-show-when="protocol=vless,vmess">
+          <label>REALITY dest</label><input type="text" name="reality_dest" value="www.cloudflare.com:443" />
+        </div>
+        <div class="field" data-show-when="protocol=vless,vmess">
+          <label>REALITY serverNames</label><input type="text" name="reality_server_names" value="www.cloudflare.com" />
+        </div>
+        <div class="field full" data-show-when="protocol=vless,vmess,trojan,shadowsocks,grpc">
+          <label class="switch"><input type="checkbox" name="attach_all_users" value="1" /><span class="track"></span><span>همه‌ی کاربران فعلی به این کانفیگ وصل شوند</span></label>
+        </div>
+      </div>
+
+      <div class="modal-note">
+        امنیت <b>TLS</b> توسط Nginx ترمینیت می‌شود و ترافیک با <span class="mono">proxy_protocol</span> به Xray می‌رسد؛ بنابراین IP واقعی کاربر حفظ می‌شود
+        (محدودیت IP و آمار مصرف دقیق). حالت <b>REALITY</b> بدون گواهی کار می‌کند و ترافیک TLS را مستقیم روی Xray می‌بَرد.
+        کلیدهای REALITY در همین لحظه ساخته می‌شوند.
+      </div>
+    </div>
+    <footer>
+      <button class="btn primary" type="submit">ذخیره</button>
+      <button class="btn ghost" type="button" data-modal-close>انصراف</button>
+    </footer>
+  </form>
+</div>
+
+<div class="modal" id="inboundEditModal" hidden>
+  <header>
+    <h2>ویرایش کانفیگ</h2>
+    <button class="modal-close" data-modal-close>✕</button>
+  </header>
+  <form data-ajax id="inboundEditForm" method="post">
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="field"><label>نام</label><input type="text" name="name" /></div>
+        <div class="field"><label>پورت عمومی</label><input type="number" name="port" min="1" max="65535" /></div>
+        <div class="field"><label>مسیر</label><input type="text" name="path" /></div>
+        <div class="field"><label>SNI</label><input type="text" name="sni" /></div>
+        <div class="field"><label>Host</label><input type="text" name="host" /></div>
+        <div class="field"><label>ALPN</label><input type="text" name="alpn" /></div>
+        <div class="field"><label>Fingerprint</label><input type="text" name="fingerprint" /></div>
+        <div class="field" data-show-when="xhttp_mode=auto,packet-up,stream-up,stream-one">
+          <label>حالت XHTTP</label>
+          <select name="xhttp_mode">{% for m in xhttp_modes %}<option value="{{ m }}">{{ m }}</option>{% endfor %}</select>
+        </div>
+        <div class="field full"><label>یادداشت</label><textarea name="note"></textarea></div>
+      </div>
+    </div>
+    <footer>
+      <button class="btn primary" type="submit">ذخیره</button>
+      <button class="btn ghost" type="button" data-modal-close>انصراف</button>
+    </footer>
+  </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.addEventListener("click", function (event) {
+    const trigger = event.target.closest("[data-modal-fill='inboundEditModal']");
+    if (!trigger) return;
+    try {
+      const payload = JSON.parse(trigger.getAttribute("data-payload"));
+      document.getElementById("inboundEditForm").action = "/inbounds/" + payload.inbound_id + "/update";
+    } catch (e) {}
+  });
+</script>
+{% endblock %}

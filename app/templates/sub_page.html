@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<title>{{ app_name }} · {{ group.name }}</title>
+<link rel="stylesheet" href="/static/css/titan.css" />
+</head>
+<body>
+<div class="sub-shell">
+  <div class="sub-wrap">
+    <div class="sub-head">
+      <div class="logo" style="margin:0 auto 6px;width:52px;height:52px;border-radius:14px;background:linear-gradient(145deg,#2f76ff,#1d397b);display:grid;place-items:center;color:#fff">
+        <svg viewBox="0 0 24 24" width="26" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 2.8 19.2 7v10L12 21.2 4.8 17V7L12 2.8Z"/><path d="M12 7.2v9.6M7.2 9.7 12 12.5l4.8-2.8"/></svg>
+      </div>
+      <h1>{{ group.name }}</h1>
+      <p>{{ app_name }} — اشتراک شما آماده است. کانفیگ دلخواه را انتخاب و در برنامه‌ی خود وارد کنید.</p>
+    </div>
+
+    <div class="sub-stats">
+      <div class="card kpi">
+        <div class="kpi-icon blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 14c3-7 5-7 7-2s4 6 6 0 3-6 5-2"/><path d="M3 19h18"/></svg></div>
+        <div><b>{{ totals.usage | human_bytes }}</b><small>مصرف کل</small></div>
+      </div>
+      <div class="card kpi">
+        <div class="kpi-icon green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 3v12"/><path d="m7.5 10.5 4.5 4.5 4.5-4.5"/><path d="M4 21h16"/></svg></div>
+        <div><b>{{ totals.down | human_bytes }}</b><small>دانلود</small></div>
+      </div>
+      <div class="card kpi">
+        <div class="kpi-icon purple"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 21V9"/><path d="m7.5 13.5 4.5-4.5 4.5 4.5"/><path d="M4 3h16"/></svg></div>
+        <div><b>{{ totals.up | human_bytes }}</b><small>آپلود</small></div>
+      </div>
+      <div class="card kpi">
+        <div class="kpi-icon yellow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg></div>
+        <div><b>{{ totals.users | fa }}</b><small>حساب در این اشتراک</small></div>
+      </div>
+    </div>
+
+    {% if announcement %}<div class="flash ok" style="margin-bottom:18px">{{ announcement }}</div>{% endif %}
+
+    <div class="card card-block" style="margin-bottom:20px">
+      <header><h3>لینک اشتراک (Subscription)</h3></header>
+      <div class="grid-2">
+        <div class="stack" style="gap:10px">
+          <div class="code-row">
+            <code>{{ request.base_url }}sub/{{ group.token }}</code>
+            <button class="copy-btn" data-copy="{{ request.base_url }}sub/{{ group.token }}">⧉</button>
+          </div>
+          <div class="row" style="gap:8px;flex-wrap:wrap">
+            <button class="btn sm" data-copy="{{ request.base_url }}sub/{{ group.token }}">کپی لینک ساب</button>
+            <a class="btn sm" href="/sub/{{ group.token }}/clash.yaml">دانلود Clash</a>
+            <a class="btn sm" href="/sub/{{ group.token }}/json">نمای JSON</a>
+          </div>
+          <p class="small muted">این لینک را در v2rayNG، NekoBox، Streisand، Shadowrocket یا Clash وارد کنید تا همه‌ی کانفیگ‌ها به‌صورت خودکار بروز شوند.</p>
+        </div>
+        <div style="display:grid;place-items:center">
+          <div class="qr-box">
+            <img src="/qr.svg?data={{ (request.base_url | string) ~ 'sub/' ~ group.token | urlencode }}" width="150" height="150" alt="QR" />
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="stack">
+      {% for card in cards %}
+      <section class="card sub-config">
+        <div class="cfg-head">
+          <span class="pill purple">{{ card.inbound.protocol.value.upper() }}</span>
+          <span class="pill blue">{{ card.inbound.transport.value.upper() }}</span>
+          <span class="pill gray">{{ card.inbound.security.value.upper() }}</span>
+          <b>{{ card.node.flag }} {{ card.node.name }} <span class="muted small">({{ card.node.ping_ms | fa }}ms)</span></b>
+          <span class="spacer"></span>
+          <span class="pill {{ 'green' if card.user.status.value == 'active' else 'yellow' }}">{{ card.user.status.value }}</span>
+        </div>
+        <div class="grid-2">
+          <div class="stack" style="gap:9px">
+            <div class="code-row"><code>{{ card.link }}</code><button class="copy-btn" data-copy="{{ card.link }}">⧉</button></div>
+            <div class="row between small muted">
+              <span>مصرف: {{ card.user.used | human_bytes }} از {{ (card.user.data_limit | human_bytes) if card.user.data_limit else 'نامحدود' }}</span>
+              <span>{% if card.user.expire_at %}انقضا: {{ card.user.expire_at | short_date }}{% else %}بدون انقضا{% endif %}</span>
+            </div>
+            <div class="progress"><span style="width:{{ card.user.usage_percent }}%"></span></div>
+          </div>
+          <div style="display:grid;place-items:center"><div class="qr-box">{{ card.qr | safe }}</div></div>
+        </div>
+      </section>
+      {% else %}
+      <div class="card card-block"><div class="empty">در حال حاضر کانفیگ فعالی در این اشتراک وجود ندارد.</div></div>
+      {% endfor %}
+    </div>
+
+    <p class="small muted" style="text-align:center;margin:26px 0">
+      {{ app_name }} Panel v{{ version }} · پشتیبانی: <a href="{{ links.support }}">{{ links.support_label }}</a>
+    </p>
+  </div>
+</div>
+<script src="/static/js/titan.js"></script>
+</body>
+</html>

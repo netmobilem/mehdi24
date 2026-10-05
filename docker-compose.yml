@@ -1,0 +1,39 @@
+# ── TiTaN Panel · single-host stack ──────────────────────────────────────────
+#   docker compose up -d --build          → panel on http://localhost:8000
+#
+# The panel is a control plane: it manages remote nodes over SSH + agent.
+# Nodes stay bare-metal VMs so Xray/Nginx get the whole kernel to themselves
+# (that is where the speed and the low ping come from).
+services:
+  panel:
+    build: .
+    image: titan-panel:latest
+    container_name: titan-panel
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DATA_DIR: /data
+      PORT: "8000"
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/data
+      - ./keys:/keys:ro          # optional: SSH keys for node bootstrap
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8000/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # optional: Postgres instead of the bundled SQLite (uncomment + set
+  # DATABASE_URL in .env to switch; SQLite is fine for thousands of users)
+  # postgres:
+  #   image: postgres:16-alpine
+  #   restart: unless-stopped
+  #   environment:
+  #     POSTGRES_PASSWORD: titan
+  #     POSTGRES_USER: titan
+  #     POSTGRES_DB: titan
+  #   volumes:
+  #     - ./pgdata:/var/lib/postgresql/data

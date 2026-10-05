@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}{{ app_name }} — لینک‌های {{ user.username }}{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>لینک‌های {{ user.username }} <span class="mono small muted">/ {{ user.display_name or user.email }}</span></h1>
+    <p>{{ rows | length | fa }} کانفیگ فعال · مصرف {{ user.used | human_bytes }} از {{ (user.data_limit | human_bytes) if user.data_limit else 'نامحدود' }}
+      {% if user.expire_at %} · انقضا {{ user.expire_at | short_date }} ({{ user.days_left | fa }} روز){% endif %}</p>
+  </div>
+  <div class="head-actions">
+    <button class="btn" data-copy="{{ sub_url }}">کپی لینک ساب کاربری</button>
+    <button class="btn" data-action="/users/{{ user.id }}/rotate" data-confirm="UUID و لینک‌ها بازتولید شوند؟ کاربران فعلی قطع می‌شوند.">بازتولید لینک‌ها</button>
+    <a class="btn ghost" href="/users">بازگشت</a>
+  </div>
+</div>
+
+<div class="stack">
+  {% for row in rows %}
+  <section class="card card-block">
+    <header>
+      <span class="pill purple">{{ row.inbound.protocol.value.upper() }}</span>
+      <span class="pill blue">{{ row.inbound.transport.value.upper() }}</span>
+      <span class="pill gray">{{ row.inbound.security.value.upper() }}</span>
+      <h3>{{ row.node.flag }} {{ row.node.name }} — {{ row.inbound.name }}</h3>
+      <span class="spacer"></span>
+      <span class="small muted">پورت {{ row.inbound.port | fa }} · {{ 'فعال' if row.client.is_active else 'غیرفعال' }}</span>
+    </header>
+
+    <div class="grid-2">
+      <div class="stack" style="gap:10px">
+        <div class="code-row">
+          <code>{{ row.link }}</code>
+          <button class="copy-btn" data-copy="{{ row.link }}" title="کپی لینک">⧉</button>
+        </div>
+        <div class="row" style="gap:8px;flex-wrap:wrap">
+          <button class="btn sm" data-copy="{{ row.link }}">کپی لینک اتصال</button>
+          <button class="btn sm" data-copy='{{ row.client_json | tojson }}'>کپی کانفیگ JSON (Xray)</button>
+          {% if row.wireguard %}<button class="btn sm" data-copy='{{ row.wireguard | tojson }}'>کپی WireGuard</button>{% endif %}
+        </div>
+        <div class="small muted">
+          UUID: <span class="mono">{{ user.uuid }}</span><br>
+          {% if row.client.flow %}Flow: <span class="mono">{{ row.client.flow }}</span><br>{% endif %}
+          ALPN: <span class="mono">{{ row.inbound.alpn }}</span> · Fingerprint: <span class="mono">{{ row.inbound.fingerprint }}</span>
+          {% if row.inbound.security.value == 'reality' %}<br>PublicKey: <span class="mono">{{ row.inbound.reality_public_key }}</span> · ShortID: <span class="mono">{{ row.inbound.reality_short_id }}</span>{% endif %}
+        </div>
+      </div>
+      <div style="display:grid;place-items:center">
+        <div class="qr-box">
+          <img src="/qr.svg?data={{ row.link | urlencode }}" alt="QR" width="150" height="150" />
+        </div>
+      </div>
+    </div>
+  </section>
+  {% else %}
+  <div class="card card-block"><div class="empty">این کاربر به هیچ کانفیگی متصل نیست — از بخش «کانفیگ‌ها» اضافه کنید.</div></div>
+  {% endfor %}
+</div>
+{% endblock %}

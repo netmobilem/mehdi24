@@ -1,0 +1,233 @@
+{% extends "base.html" %}
+{% block title %}{{ app_name }} — سرورها{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>سرورها (Node ها)</h1>
+    <p>{{ total | fa }} سرور ثبت شده · {{ online | length | fa }} آنلاین · میانگین پینگ {{ avg_ping | fa }}ms · ترافیک کل {{ total_traffic | human_bytes }}</p>
+  </div>
+  <div class="head-actions">
+    <button class="btn primary" data-modal-open="nodeCreateModal">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14"/></svg>
+      افزودن سرور
+    </button>
+  </div>
+</div>
+
+<div class="node-grid">
+  {% for node in nodes %}
+  <section class="card node-card" data-live-node="{{ node.id }}">
+    <div class="node-top">
+      <div class="grow">
+        <div class="node-title">
+          <span class="status-dot {{ '' if node.status.value == 'online' else ('yellow' if node.status.value in ['connecting','installing','degraded'] else '') }}"
+                style="{{ '' if node.status.value == 'online' else 'background:#f6bf3d' }}"></span>
+          <span>{{ node.name }}</span>
+          <span class="node-flag">{{ node.flag }}</span>
+        </div>
+        <div class="node-sub mono">{{ node.address }}{% if node.city %} · {{ node.city }}{% endif %} · {{ node.status_label }}</div>
+        <div class="node-sub">
+          Xray: <span class="mono">{{ (node.xray_version or '—')[:28] }}</span> · Nginx: <span class="mono">{{ (node.nginx_version or '—')[:18] }}</span>
+        </div>
+      </div>
+      {% set ring_value = node.ping_ms if node.ping_ms < 200 else 200 %}
+      <div class="ring" style="--ring-value:{{ (100 - (ring_value / 2)) if node.ping_ms else 0 }};--ring-color:{{ '#19d89a' if node.ping_ms and node.ping_ms < 80 else ('#f6bf3d' if node.ping_ms and node.ping_ms < 180 else '#ff4668') }}">
+        <b data-live-field="ping">{{ node.ping_ms | fa }}</b>
+      </div>
+    </div>
+
+    <div class="row" style="gap:8px;flex-wrap:wrap">
+      <span class="pill {{ 'green' if node.status.value == 'online' else 'yellow' }}"><span class="badge-dot"></span>{{ node.status_label }}</span>
+      <span class="pill gray">{{ node.inbounds_count | fa }} کانفیگ</span>
+      {% if node.cert_expires_at %}<span class="pill blue">TLS: {{ (node.cert_expires_at - now).days | fa }} روز</span>{% endif %}
+      {% if node.hysteria2_enabled %}<span class="pill purple">Hysteria2</span>{% endif %}
+      {% if node.wireguard_enabled %}<span class="pill purple">WireGuard</span>{% endif %}
+    </div>
+
+    <div class="metric-grid">
+      <div>
+        <small>CPU</small>
+        <div class="row between"><b class="small" data-live-field="cpu">{{ node.cpu_pct | fa }}%</b></div>
+        <div class="progress"><span data-live-bar="cpu" class="{{ 'crit' if node.cpu_pct > 85 else ('warn' if node.cpu_pct > 65 else '') }}" style="width:{{ node.cpu_pct }}%"></span></div>
+      </div>
+      <div>
+        <small>RAM</small>
+        <div class="row between"><b class="small" data-live-field="ram">{{ node.ram_pct | fa }}%</b></div>
+        <div class="progress"><span data-live-bar="ram" style="width:{{ node.ram_pct }}%"></span></div>
+      </div>
+      <div>
+        <small>DISK</small>
+        <div class="row between"><b class="small">{{ node.disk_pct | fa }}%</b></div>
+        <div class="progress"><span class="{{ 'warn' if node.disk_pct > 70 else '' }}" style="width:{{ node.disk_pct }}%"></span></div>
+      </div>
+    </div>
+
+    <div class="row between small muted">
+      <span>ترافیک: <b data-live-field="traffic">{{ (node.traffic_up + node.traffic_down) | human_bytes }}</b></span>
+      <span>آپ‌تایم: {{ (node.uptime_sec // 86400) | fa }} روز</span>
+      <span>Load: <span class="mono">{{ node.load_avg or '—' }}</span></span>
+    </div>
+
+    <div class="node-foot">
+      <button class="icon-btn" data-action="/nodes/{{ node.id }}/deploy" title="استقرار کانفیگ‌ها">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 3v12"/><path d="m7.5 10.5 4.5 4.5 4.5-4.5"/><path d="M4 21h16"/></svg>
+      </button>
+      <button class="icon-btn" data-action="/nodes/{{ node.id }}/bootstrap" data-confirm="نصب خودکار Xray + Nginx + ایجنت روی این سرور؟ (نیازمند دسترسی SSH)" title="نصب خودکار روی سرور">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 3v10"/><path d="m8 9 4 4 4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
+      </button>
+      <button class="icon-btn" data-modal-fill="nodeActionModal" data-payload='{{ {"node_id": node.id, "node_name": node.name} | tojson }}' title="عملیات">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M6 6l2 2M16 16l2 2M18 6l-2 2M8 16l-2 2"/><circle cx="12" cy="12" r="3"/></svg>
+      </button>
+      <button class="icon-btn" data-modal-fill="nodeEditModal" data-payload='{{ {"node_id": node.id, "name": node.name, "address": node.address, "port": node.port, "agent_port": node.agent_port, "ssh_host": node.ssh_host, "ssh_port": node.ssh_port, "ssh_user": node.ssh_user, "country_code": node.country_code, "city": node.city, "reality_enabled": node.reality_enabled, "hysteria2_enabled": node.hysteria2_enabled, "wireguard_enabled": node.wireguard_enabled} | tojson }}' title="ویرایش">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 20h4l10-10-4-4L4 16v4Z"/><path d="m14 6 4 4"/></svg>
+      </button>
+      <a class="icon-btn" href="/nodes/{{ node.id }}" title="جزئیات و لاگ‌ها">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6-10-6-10-6Z"/><circle cx="12" cy="12" r="2.6"/></svg>
+      </a>
+      <span class="spacer"></span>
+      <button class="icon-btn danger" data-action="/nodes/{{ node.id }}/delete" data-confirm="سرور {{ node.name }} و همه‌ی کانفیگ‌هایش حذف شوند؟" title="حذف">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M5 7h14M9 7V4.5h6V7M6.5 7l.8 12h9.4l.8-12"/></svg>
+      </button>
+    </div>
+    {% if node.status_message %}<div class="small" style="color:#ff8098;margin-top:8px">{{ node.status_message }}</div>{% endif %}
+  </section>
+  {% else %}
+  <div class="card card-block"><div class="empty">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="4" y="5" width="16" height="5" rx="1.3"/><rect x="4" y="14" width="16" height="5" rx="1.3"/></svg>
+    هنوز سروری اضافه نشده است.<br>با «افزودن سرور» یک نود بسازید و سپس دکمه‌ی نصب خودکار را بزنید.
+  </div></div>
+  {% endfor %}
+</div>
+{% endblock %}
+
+{% block modals %}
+<div class="modal" id="nodeCreateModal" hidden>
+  <header>
+    <h2>افزودن سرور</h2>
+    <button class="modal-close" data-modal-close>✕</button>
+  </header>
+  <form data-ajax action="/nodes/create" method="post">
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="field"><label>نام <span class="req">*</span></label><input type="text" name="name" placeholder="سرور اصلی" required /></div>
+        <div class="field"><label>آدرس (دامنه یا IP) <span class="req">*</span></label><input type="text" name="address" placeholder="de-frankfurt.example.com" required /></div>
+        <div class="field"><label>پورت عمومی</label><input type="number" name="port" value="443" min="1" max="65535" /></div>
+        <div class="field"><label>پورت ایجنت</label><input type="number" name="agent_port" value="62050" min="1" max="65535" /></div>
+        <div class="field">
+          <label>کشور</label>
+          <select name="country_code">
+            {% for country in countries %}<option value="{{ country.code }}">{{ country.fa }} ({{ country.code }})</option>{% endfor %}
+          </select>
+        </div>
+        <div class="field"><label>شهر</label><input type="text" name="city" placeholder="Frankfurt" /></div>
+      </div>
+
+      <div class="section-title">دسترسی SSH (برای نصب خودکار)</div>
+      <div class="form-grid">
+        <div class="field"><label>هاست SSH</label><input type="text" name="ssh_host" placeholder="مثل آدرس سرور" /></div>
+        <div class="field"><label>پورت SSH</label><input type="number" name="ssh_port" value="22" /></div>
+        <div class="field"><label>کاربر SSH</label><input type="text" name="ssh_user" value="root" /></div>
+        <div class="field"><label>رمز SSH</label><input type="password" name="ssh_password" placeholder="••••••" /></div>
+        <div class="field full"><label>مسیر کلید خصوصی (اختیاری)</label><input type="text" name="ssh_key_path" placeholder="/data/keys/node1.key" /></div>
+      </div>
+
+      <div class="section-title">هسته‌ها</div>
+      <div class="form-grid">
+        <div class="field"><label class="switch"><input type="checkbox" name="reality_enabled" value="1" checked /><span class="track"></span><span>REALITY</span></label></div>
+        <div class="field"><label class="switch"><input type="checkbox" name="hysteria2_enabled" value="1" /><span class="track"></span><span>Hysteria2 (UDP)</span></label></div>
+        <div class="field"><label class="switch"><input type="checkbox" name="wireguard_enabled" value="1" /><span class="track"></span><span>WireGuard</span></label></div>
+      </div>
+
+      <div class="modal-note">
+        پس از ذخیره، دکمه‌ی «نصب خودکار» را بزنید تا روی سرور: Nginx + Xray-core نصب شود، تنظیمات کرنل (BBR/TFO) اعمال شود،
+        فایروال تنظیم و ایجنت TiTaN به‌صورت سرویس systemd بالا بیاید. اگر SSH ندارید، فایل اسکریپت نصب را از دکمه‌ی
+        «اسکریپت دستی» در صفحه‌ی جزئیات سرور دانلود و روی سرور اجرا کنید.
+      </div>
+    </div>
+    <footer>
+      <button class="btn primary" type="submit">ذخیره</button>
+      <button class="btn ghost" type="button" data-modal-close>انصراف</button>
+    </footer>
+  </form>
+</div>
+
+<div class="modal" id="nodeEditModal" hidden>
+  <header>
+    <h2>ویرایش سرور</h2>
+    <button class="modal-close" data-modal-close>✕</button>
+  </header>
+  <form data-ajax id="nodeEditForm" method="post">
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="field"><label>نام</label><input type="text" name="name" /></div>
+        <div class="field"><label>آدرس</label><input type="text" name="address" /></div>
+        <div class="field"><label>پورت عمومی</label><input type="number" name="port" /></div>
+        <div class="field"><label>پورت ایجنت</label><input type="number" name="agent_port" /></div>
+        <div class="field"><label>SSH Host</label><input type="text" name="ssh_host" /></div>
+        <div class="field"><label>SSH Port</label><input type="number" name="ssh_port" /></div>
+        <div class="field"><label>SSH User</label><input type="text" name="ssh_user" /></div>
+        <div class="field"><label>شهر</label><input type="text" name="city" /></div>
+        <div class="field"><label>کشور (۲ حرفی)</label><input type="text" name="country_code" maxlength="2" /></div>
+      </div>
+      <div class="form-grid">
+        <div class="field"><label class="switch"><input type="checkbox" name="reality_enabled" value="1" /><span class="track"></span><span>REALITY</span></label></div>
+        <div class="field"><label class="switch"><input type="checkbox" name="hysteria2_enabled" value="1" /><span class="track"></span><span>Hysteria2</span></label></div>
+        <div class="field"><label class="switch"><input type="checkbox" name="wireguard_enabled" value="1" /><span class="track"></span><span>WireGuard</span></label></div>
+      </div>
+    </div>
+    <footer>
+      <button class="btn primary" type="submit">ذخیره</button>
+      <button class="btn ghost" type="button" data-modal-close>انصراف</button>
+    </footer>
+  </form>
+</div>
+
+<div class="modal narrow" id="nodeActionModal" hidden>
+  <header>
+    <h2>عملیات سرور</h2>
+    <button class="modal-close" data-modal-close>✕</button>
+  </header>
+  <form data-ajax id="nodeActionForm" method="post">
+    <div class="modal-body">
+      <div class="field">
+        <label>عملیات</label>
+        <select name="action">
+          <option value="restart-xray">ری‌استارت Xray</option>
+          <option value="restart-nginx">ری‌استارت Nginx</option>
+          <option value="reload-nginx">ریلود Nginx (بدون قطعی)</option>
+          <option value="upgrade-xray">بروزرسانی Xray-core</option>
+          <option value="upgrade-nginx">بروزرسانی Nginx</option>
+          <option value="geo-update">بروزرسانی GeoIP/GeoSite</option>
+        </select>
+      </div>
+      <div class="modal-note">عملیات به‌صورت زنده روی سرور اجرا می‌شود و خروجی آن در گزارش‌ها ثبت می‌گردد.</div>
+    </div>
+    <footer>
+      <button class="btn primary" type="submit">اجرا</button>
+      <button class="btn ghost" type="button" data-modal-close>انصراف</button>
+    </footer>
+  </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.addEventListener("click", function (event) {
+    const editTrigger = event.target.closest("[data-modal-fill='nodeEditModal']");
+    if (editTrigger) {
+      try {
+        const payload = JSON.parse(editTrigger.getAttribute("data-payload"));
+        document.getElementById("nodeEditForm").action = "/nodes/" + payload.node_id + "/update";
+      } catch (e) {}
+    }
+    const actionTrigger = event.target.closest("[data-modal-fill='nodeActionModal']");
+    if (actionTrigger) {
+      try {
+        const payload = JSON.parse(actionTrigger.getAttribute("data-payload"));
+        document.getElementById("nodeActionForm").action = "/nodes/" + payload.node_id + "/action";
+      } catch (e) {}
+    }
+  });
+</script>
+{% endblock %}

@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block title %}{{ app_name }} — مدیریت ادمین{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>مدیریت ادمین</h1>
+    <p>{{ staff | length | fa }} حساب مدیریتی — سطوح دسترسی بر اساس نقش کنترل می‌شود</p>
+  </div>
+  <div class="head-actions">
+    <button class="btn primary" data-modal-open="adminCreateModal">ادمین جدید</button>
+  </div>
+</div>
+
+<div class="table-wrap">
+  <table class="data">
+    <thead><tr><th>کاربر</th><th>نقش</th><th>وضعیت</th><th>آخرین ورود</th><th>IP</th><th>تلگرام</th><th style="width:140px"></th></tr></thead>
+    <tbody>
+      {% for member in staff %}
+      <tr>
+        <td><div class="cell-title mono">{{ member.username }}</div><div class="cell-sub">{{ member.full_name or '—' }}</div></td>
+        <td><span class="pill purple">{{ member.role_label }}</span></td>
+        <td>{% if member.is_active %}<span class="pill green"><span class="badge-dot"></span>فعال</span>{% else %}<span class="pill red">غیرفعال</span>{% endif %}</td>
+        <td>{{ member.last_login_at | time_ago if member.last_login_at else '—' }}</td>
+        <td class="mono small">{{ member.last_login_ip or '—' }}</td>
+        <td class="mono small">{{ member.telegram_id or '—' }}</td>
+        <td class="actions">
+          <div class="row" style="gap:6px;justify-content:flex-end">
+            <button class="icon-btn" data-action="/admins/{{ member.id }}/toggle" title="فعال/غیرفعال">⇄</button>
+            <button class="icon-btn danger" data-action="/admins/{{ member.id }}/delete" data-confirm="ادمین {{ member.username }} حذف شود؟" title="حذف">🗑</button>
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<section class="card card-block" style="margin-top:20px">
+  <header><h3>ماتریس دسترسی نقش‌ها</h3></header>
+  <div class="grid-3">
+    <div class="soft" style="padding:14px">
+      <b>مدیر کل (owner)</b>
+      <p class="small muted" style="line-height:2">دسترسی کامل به همه‌ی بخش‌ها: سرورها، کاربران، کانفیگ‌ها، اشتراک‌ها، ادمین‌ها و تنظیمات.</p>
+    </div>
+    <div class="soft" style="padding:14px">
+      <b>ادمین (admin)</b>
+      <p class="small muted" style="line-height:2">مدیریت کاربران، کانفیگ‌ها، سرورها، اشتراک‌ها، گزارش‌ها و تنظیمات — بدون مدیریت ادمین‌ها.</p>
+    </div>
+    <div class="soft" style="padding:14px">
+      <b>نماینده (reseller)</b>
+      <p class="small muted" style="line-height:2">ساخت و مدیریت کاربران، کانفیگ‌ها و اشتراک‌های خودش، مشاهده‌ی آمار.</p>
+    </div>
+    <div class="soft" style="padding:14px">
+      <b>مشاهده‌گر (viewer)</b>
+      <p class="small muted" style="line-height:2">فقط مشاهده‌ی داشبورد، گزارش‌ها و آمارها — بدون امکان تغییر.</p>
+    </div>
+  </div>
+</section>
+{% endblock %}
+
+{% block modals %}
+<div class="modal narrow" id="adminCreateModal" hidden>
+  <header><h2>ادمین جدید</h2><button class="modal-close" data-modal-close>✕</button></header>
+  <form data-ajax action="/admins/create" method="post">
+    <div class="modal-body">
+      <div class="field"><label>نام کاربری <span class="req">*</span></label><input type="text" name="username" required /></div>
+      <div class="field"><label>رمز عبور <span class="req">*</span></label><input type="password" name="password" required minlength="6" /></div>
+      <div class="field"><label>نام کامل</label><input type="text" name="full_name" /></div>
+      <div class="field">
+        <label>نقش</label>
+        <select name="role">
+          <option value="admin">ادمین</option>
+          <option value="reseller">نماینده</option>
+          <option value="viewer">مشاهده‌گر</option>
+          <option value="owner">مدیر کل</option>
+        </select>
+      </div>
+      <div class="field"><label>آیدی تلگرام (اختیاری)</label><input type="text" name="telegram_id" placeholder="123456789" /></div>
+      <div class="field full"><label>یادداشت</label><textarea name="note"></textarea></div>
+    </div>
+    <footer>
+      <button class="btn primary" type="submit">ذخیره</button>
+      <button class="btn ghost" type="button" data-modal-close>انصراف</button>
+    </footer>
+  </form>
+</div>
+{% endblock %}

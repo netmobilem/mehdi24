@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% block title %}{{ app_name }} — اشتراک‌ها{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>اشتراک‌ها</h1>
+    <p>{{ groups | length | fa }} گروه اشتراک — هر گروه یک لینک حرفه‌ای با صفحه‌ی عمومی، QR و خروجی Clash دارد</p>
+  </div>
+  <div class="head-actions">
+    <button class="btn primary" data-modal-open="subCreateModal">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14"/></svg>
+      گروه اشتراک جدید
+    </button>
+  </div>
+</div>
+
+<div class="stack">
+  {% for group in groups %}
+  <section class="card card-block">
+    <header>
+      <h3>{{ group.name }}</h3>
+      <span class="pill {{ 'green' if group.is_active else 'red' }}">{{ 'فعال' if group.is_active else 'غیرفعال' }}</span>
+      {% if group.password_hash %}<span class="pill yellow">رمزدار</span>{% endif %}
+      <span class="spacer"></span>
+      <span class="small muted">{{ group.items | length | fa }} کانفیگ · {{ group.hits | fa }} بازدید · {{ group.last_hit_at | time_ago if group.last_hit_at else '—' }}</span>
+    </header>
+
+    <div class="grid-2">
+      <div class="stack" style="gap:10px">
+        <div class="code-row">
+          <code>https://{{ panel_domain }}/sub/{{ group.token }}</code>
+          <button class="copy-btn" data-copy="https://{{ panel_domain }}/sub/{{ group.token }}" title="کپی لینک ساب">⧉</button>
+        </div>
+        <div class="code-row">
+          <code>https://{{ panel_domain }}/s/{{ group.token }}</code>
+          <button class="copy-btn" data-copy="https://{{ panel_domain }}/s/{{ group.token }}" title="کپی صفحه‌ی عمومی">⧉</button>
+        </div>
+        <div class="row" style="gap:8px;flex-wrap:wrap">
+          <a class="btn sm" href="/s/{{ group.token }}" target="_blank">مشاهده‌ی صفحه‌ی عمومی</a>
+          <button class="btn sm" data-copy="https://{{ panel_domain }}/sub/{{ group.token }}/clash.yaml">کپی لینک Clash</button>
+          <button class="btn sm" data-action="/subscriptions/{{ group.id }}/rotate" data-confirm="لینک اشتراک بازتولید شود؟">بازتولید لینک</button>
+          <button class="btn sm" data-action="/subscriptions/{{ group.id }}/toggle">{{ 'غیرفعال‌سازی' if group.is_active else 'فعال‌سازی' }}</button>
+          <button class="btn sm danger" data-action="/subscriptions/{{ group.id }}/delete" data-confirm="گروه حذف شود؟">حذف</button>
+        </div>
+      </div>
+      <div>
+        <div class="chips">
+          {% for item in group.items[:12] %}
+          <span class="chip">{{ item.inbound.node.flag if item.inbound.node else '' }} {{ item.user.username }} · {{ item.inbound.protocol.value.upper() }}</span>
+          {% endfor %}
+          {% if group.items | length > 12 %}<span class="chip">+{{ (group.items | length) - 12 | fa }}</span>{% endif %}
+        </div>
+        {% if group.note %}<p class="small muted" style="margin-top:12px">{{ group.note }}</p>{% endif %}
+      </div>
+    </div>
+  </section>
+  {% else %}
+  <div class="card card-block"><div class="empty">
+    هنوز گروه اشتراکی ساخته نشده است. با «گروه اشتراک جدید» چند کانفیگ را در یک لینک جمع کنید.
+  </div></div>
+  {% endfor %}
+</div>
+{% endblock %}
+
+{% block modals %}
+<div class="modal wide" id="subCreateModal" hidden>
+  <header>
+    <h2>گروه اشتراک جدید</h2>
+    <button class="modal-close" data-modal-close>✕</button>
+  </header>
+  <form data-ajax action="/subscriptions/create" method="post">
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="field"><label>نام گروه</label><input type="text" name="name" placeholder="پکیج ویژه" /></div>
+        <div class="field"><label>رمز صفحه (اختیاری)</label><input type="text" name="password" placeholder="خالی = بدون رمز" /></div>
+        <div class="field full"><label>یادداشت</label><textarea name="note"></textarea></div>
+      </div>
+      <div class="section-title">کانفیگ‌ها</div>
+      <div class="form-grid">
+        <div class="field full">
+          <label>کاربران</label>
+          <select name="user_ids" multiple size="5">
+            {% for user in users %}<option value="{{ user.id }}">{{ user.username }} — {{ user.display_name or '' }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="field full">
+          <label>کانفیگ‌ها <span class="hint">اگر خالی بماند، همه‌ی کانفیگ‌های کاربر انتخاب می‌شوند</span></label>
+          <select name="inbound_ids" multiple size="5">
+            {% for inbound in inbounds %}<option value="{{ inbound.id }}">{{ inbound.node.flag }} {{ inbound.node.name }} — {{ inbound.protocol.value.upper() }}/{{ inbound.transport.value.upper() }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="field full">
+          <label class="switch"><input type="checkbox" name="auto_all" value="1" /><span class="track"></span><span>همه‌ی کاربران × همه‌ی کانفیگ‌ها</span></label>
+        </div>
+      </div>
+    </div>
+    <footer>
+      <button class="btn primary" type="submit">ذخیره</button>
+      <button class="btn ghost" type="button" data-modal-close>انصراف</button>
+    </footer>
+  </form>
+</div>
+{% endblock %}

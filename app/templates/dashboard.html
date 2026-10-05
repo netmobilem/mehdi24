@@ -1,0 +1,174 @@
+{% extends "base.html" %}
+{% block title %}{{ app_name }} — داشبورد{% endblock %}
+
+{#
+  The dashboard keeps the reference design markup 1:1.
+  Only the *values* are dynamic: counters, chart series, servers, users,
+  activities and the traffic donut all come from the panel database.
+#}
+{% block content %}
+  <div class="greeting">
+    <div class="greeting-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="2.5"/></svg></div>
+    <div>
+      <h1>خوش آمدید 👋</h1>
+      <p>نمای کلی وضعیت سرویس‌ها و آمار کلی پنل شما{% if live_stamp %} — <span id="liveStamp">آخرین بروزرسانی: {{ live_stamp | fa }}</span>{% endif %}</p>
+    </div>
+  </div>
+
+  <div class="grid-stats">
+    <div class="card stat">
+      <div class="stat-icon purple"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="8" r="3.2"/><path d="M5.5 20c.5-4 2.6-6 6.5-6s6 2 6.5 6"/></svg></div>
+      <div class="stat-copy">
+        <div class="stat-title">کاربران فعال</div>
+        <div class="stat-value">{{ totals.users_active | fa }}</div>
+        <div class="stat-meta"><span class="up">↑ {{ stats_delta.users }}%</span><span>نسبت به دیروز</span></div>
+      </div>
+    </div>
+    <div class="card stat">
+      <div class="stat-icon blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 14c3-7 5-7 7-2s4 6 6 0 3-6 5-2"/><path d="M3 19h18"/></svg></div>
+      <div class="stat-copy">
+        <div class="stat-title">ترافیک مصرفی</div>
+        <div class="stat-value">{{ totals.traffic | human_bytes }}</div>
+        <div class="stat-meta"><span class="up">↑ {{ stats_delta.traffic }}%</span><span>نسبت به دیروز</span></div>
+      </div>
+    </div>
+    <div class="card stat">
+      <div class="stat-icon purple"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="4" y="5" width="16" height="5" rx="1.2"/><rect x="4" y="14" width="16" height="5" rx="1.2"/><path d="M7 7.5h.01M7 16.5h.01"/></svg></div>
+      <div class="stat-copy">
+        <div class="stat-title">کانفیگ‌های فعال</div>
+        <div class="stat-value">{{ totals.inbounds_active | fa }}</div>
+        <div class="stat-meta"><span class="up">↑ {{ stats_delta.inbounds }}%</span><span>نسبت به دیروز</span></div>
+      </div>
+    </div>
+    <div class="card stat">
+      <div class="stat-icon yellow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 4.5h10l3 3V20H6z"/><path d="M16 4.5V8h3M9 12h6M9 15.5h6"/></svg></div>
+      <div class="stat-copy">
+        <div class="stat-title">اشتراک‌های فعال</div>
+        <div class="stat-value">{{ counters.subscriptions | fa }}</div>
+        <div class="stat-meta"><span class="up">↑ {{ stats_delta.subscriptions }}%</span><span>نسبت به دیروز</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="mid">
+    <section class="card panel chart-card">
+      <div class="panel-head">
+        <div class="panel-title"><span class="mini">⌁</span>نمودار ترافیک</div>
+        <select class="select" id="rangeSelect" data-dropdown="null" onchange="window.location.href='/?range='+this.value">
+          <option value="7d" {{ 'selected' if range_key == '7d' }}>۷ روز گذشته</option>
+          <option value="24h" {{ 'selected' if range_key == '24h' }}>۲۴ ساعت گذشته</option>
+          <option value="30d" {{ 'selected' if range_key == '30d' }}>۳۰ روز گذشته</option>
+        </select>
+      </div>
+      <div class="chart-wrap">
+        <div class="chart-grid"><i class="gridline"></i><i class="gridline"></i><i class="gridline"></i><i class="gridline"></i><i class="gridline"></i></div>
+        <div class="ylabels" id="trafficYLabels"></div>
+        <svg class="chart-svg" id="trafficChart" viewBox="0 0 600 190" preserveAspectRatio="none"></svg>
+        <div class="xlabels" id="trafficXLabels"></div>
+      </div>
+    </section>
+
+    <section class="card panel servers-card">
+      <div class="panel-head"><div class="panel-title"><span class="mini">▤</span>وضعیت سرورها</div><a class="panel-link" href="/nodes">مشاهده همه</a></div>
+      <div class="server-list">
+        {% for node in nodes %}
+        <div class="server" data-live-node="{{ node.id }}">
+          <div class="server-top">
+            <div>
+              <div class="server-name"><span class="status-dot {{ '' if node.status.value == 'online' else 'yellow' }}"></span>{{ node.flag }} {{ node.name }}</div>
+              <div class="server-sub">{{ node.address }}</div>
+            </div>
+            <div class="server-state {{ '' if node.status.value == 'online' else 'yellow' }}">
+              {{ 'آنلاین' if node.status.value == 'online' else ('آفلاین' if node.status.value == 'offline' else 'در حال راه‌اندازی') }}<br>
+              <small><span data-live-field="ping">{{ node.ping_ms | fa }}</span>ms</small>
+            </div>
+          </div>
+          <div class="metrics">
+            <div>
+              <div class="metric-label"><span>CPU</span><span data-live-field="cpu">{{ node.cpu_pct | fa }}%</span></div>
+              <div class="bar"><span data-live-bar="cpu" style="width:{{ node.cpu_pct }}%"></span></div>
+            </div>
+            <div>
+              <div class="metric-label"><span>Memory</span><span data-live-field="ram">{{ node.ram_pct | fa }}%</span></div>
+              <div class="bar"><span data-live-bar="ram" style="width:{{ node.ram_pct }}%"></span></div>
+            </div>
+            <div>
+              <div class="metric-label"><span>Traffic</span><span data-live-field="traffic">{{ (node.traffic_up + node.traffic_down) | human_bytes }}</span></div>
+              <div class="bar purple"><span style="width:{{ node.traffic_bar }}%"></span></div>
+            </div>
+          </div>
+        </div>
+        {% else %}
+        <div class="server">
+          <div class="server-top">
+            <div>
+              <div class="server-name"><span class="status-dot yellow"></span>هنوز سروری اضافه نشده</div>
+              <div class="server-sub">از بخش «سرورها» یک نود بسازید و آن را مستقر کنید</div>
+            </div>
+            <div class="server-state"><a class="panel-link" href="/nodes">افزودن</a></div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </section>
+  </div>
+
+  <div class="bottom">
+    <section class="card table-card">
+      <div class="panel-head"><div class="panel-title"><span class="mini">♙</span>آخرین کاربران</div><a class="panel-link" href="/users">مشاهده همه</a></div>
+      <div class="table">
+        <div class="tr head"><span>نام</span><span>وضعیت</span><span>آخرین ورود</span><span>نقش</span></div>
+        {% for user in latest_users %}
+        <div class="tr">
+          <span class="mono">{{ user.username }}</span>
+          <span class="{{ 'green-pill' if user.status.value == 'active' else 'red-pill' }}">
+            {{ '● آنلاین' if user.last_online_at and (now - user.last_online_at).total_seconds() < 180 else '● ' + (user.status.value) }}
+          </span>
+          <span>{{ user.last_online_at | time_ago if user.last_online_at else (user.created_at | time_ago) }}</span>
+          <span>{{ 'کاربر' if not user.note else user.note[:16] }}</span>
+        </div>
+        {% else %}
+        <div class="tr"><span>—</span><span class="red-pill">● Offline</span><span>—</span><span>—</span></div>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="card activity-card">
+      <div class="panel-head"><div class="panel-title"><span class="mini">◷</span>آخرین فعالیت‌ها</div><a class="panel-link" href="/reports">مشاهده همه</a></div>
+      <div class="activity">
+        {% for log in activities %}
+        <div class="activity-row">
+          <span class="activity-icon {{ 'green' if log.level == 'ok' else ('purple' if log.kind == 'config' else '') }}">
+            {{ '↪' if log.kind == 'login' else ('＋' if log.kind in ('config', 'create') else ('▤' if log.kind == 'subscription' else '♙')) }}
+          </span>
+          <span>{{ log.message }}</span>
+          <span class="activity-time">{{ log.created_at | time_ago }}</span>
+        </div>
+        {% else %}
+        <div class="activity-row"><span class="activity-icon green">↪</span><span>فعالیتی ثبت نشده است</span><span class="activity-time">—</span></div>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="card donut-card">
+      <div class="panel-head"><div class="panel-title"><span class="mini">◔</span>آمار تفکیکی</div><a class="panel-link" href="/stats">مشاهده همه</a></div>
+      <div class="donut-layout">
+        <div class="donut" id="trafficDonut">
+          <div class="donut-center"><b>{{ donut.total | human_bytes }}</b><span>کل ترافیک</span></div>
+        </div>
+        <div class="legend">
+          {% for item in donut.segments %}
+          <div class="legend-row"><i class="legend-dot" style="background:{{ item.color }}"></i><span>{{ item.label }}</span><span>{{ item.value | human_bytes }}</span></div>
+          {% endfor %}
+        </div>
+      </div>
+    </section>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  window.__TITAN_CHART__ = {{ chart | tojson }};
+  window.__TITAN_DONUT__ = {{ donut.segments | tojson }};
+</script>
+{% endblock %}

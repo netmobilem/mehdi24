@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+{% block title %}{{ app_name }} — آمارها{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>آمارها</h1>
+    <p>تحلیل تفکیکی مصرف، وضعیت کاربران، سرورها و اتصال‌های زنده</p>
+  </div>
+</div>
+
+<div class="kpi-grid">
+  <div class="card kpi"><div class="kpi-icon blue">◔</div><div><b>{{ totals.traffic | human_bytes }}</b><small>کل ترافیک مصرفی</small></div></div>
+  <div class="card kpi"><div class="kpi-icon purple">♙</div><div><b>{{ totals.users | fa }}</b><small>کل کاربران</small></div></div>
+  <div class="card kpi"><div class="kpi-icon green">▤</div><div><b>{{ totals.inbounds_active | fa }}/{{ totals.inbounds | fa }}</b><small>کانفیگ فعال</small></div></div>
+  <div class="card kpi"><div class="kpi-icon yellow">◷</div><div><b>{{ totals.users_online | fa }}</b><small>آنلاین در ۵ دقیقه</small></div></div>
+</div>
+
+<div class="grid-2">
+  <section class="card card-block">
+    <header><h3>آمار تفکیکی بر اساس پروتکل</h3></header>
+    <div class="donut-layout">
+      <div class="donut" id="trafficDonut">
+        <div class="donut-center"><b>{{ donut_total | human_bytes }}</b><span>کل ترافیک</span></div>
+      </div>
+      <div class="legend">
+        {% for item in segments %}
+        <div class="legend-row"><i class="legend-dot" style="background:{{ item.color }}"></i><span>{{ item.label }}</span><span>{{ item.value | human_bytes }}</span></div>
+        {% endfor %}
+      </div>
+    </div>
+  </section>
+
+  <section class="card card-block">
+    <header><h3>وضعیت کاربران</h3></header>
+    <div class="stack" style="gap:14px">
+      {% for key, value in status_counts.items() %}
+      <div>
+        <div class="row between small"><span>{{ key }}</span><span>{{ value | fa }}</span></div>
+        <div class="progress" style="margin-top:7px">
+          <span class="{{ 'crit' if key in ['expired','limited'] else ('warn' if key == 'disabled' else '') }}"
+                style="width:{{ (value / (totals.users or 1) * 100) | round(1) }}%"></span>
+        </div>
+      </div>
+      {% else %}
+      <div class="empty">کاربری ثبت نشده است.</div>
+      {% endfor %}
+    </div>
+  </section>
+</div>
+
+<section class="card card-block" style="margin:20px 0">
+  <header><h3>روند مصرف ۱۴ روز</h3></header>
+  <div class="chart-wrap" style="height:250px">
+    <div class="ylabels" id="trafficYLabels"></div>
+    <svg class="chart-svg" id="trafficChart" viewBox="0 0 600 190" preserveAspectRatio="none" style="height:190px"></svg>
+    <div class="xlabels" id="trafficXLabels"></div>
+  </div>
+</section>
+
+<div class="grid-2">
+  <section class="card card-block">
+    <header><h3>پر مصرف‌ترین کاربران (۳۰ روز)</h3></header>
+    <div class="table-wrap" style="border:0;background:transparent">
+      <table class="data" style="min-width:0">
+        <thead><tr><th>کاربر</th><th>مصرف</th><th>سهم حجم</th><th>وضعیت</th></tr></thead>
+        <tbody>
+          {% for user, total in usage %}
+          <tr>
+            <td class="cell-title mono">{{ user.username }}</td>
+            <td>{{ total | human_bytes }}</td>
+            <td style="width:120px"><div class="progress"><span style="width:{{ user.usage_percent }}%"></span></div></td>
+            <td><span class="pill {{ 'green' if user.status.value == 'active' else 'yellow' }}">{{ user.status.value }}</span></td>
+          </tr>
+          {% else %}
+          <tr><td colspan="4"><div class="empty">داده‌ای موجود نیست.</div></td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="card card-block">
+    <header><h3>اتصال‌های زنده</h3><span class="spacer"></span><span class="small muted">۵ دقیقه‌ی اخیر</span></header>
+    <div class="table-wrap" style="border:0;background:transparent">
+      <table class="data" style="min-width:0">
+        <thead><tr><th>کاربر</th><th>IP</th><th>آخرین فعالیت</th></tr></thead>
+        <tbody>
+          {% for username, ip, moment in online %}
+          <tr><td class="mono">{{ username }}</td><td class="mono small">{{ ip }}</td><td>{{ moment | time_ago }}</td></tr>
+          {% else %}
+          <tr><td colspan="3"><div class="empty">در حال حاضر کاربر آنلاینی وجود ندارد.</div></td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>
+
+<section class="card card-block" style="margin-top:20px">
+  <header><h3>جزئیات سرورها</h3></header>
+  <div class="table-wrap" style="border:0;background:transparent">
+    <table class="data">
+      <thead><tr><th>سرور</th><th>وضعیت</th><th>CPU</th><th>RAM</th><th>Disk</th><th>پینگ</th><th>ترافیک</th><th>آپ‌تایم</th></tr></thead>
+      <tbody>
+        {% for node in node_rows %}
+        <tr>
+          <td><span class="cell-title">{{ node.flag }} {{ node.name }}</span><div class="cell-sub mono">{{ node.address }}</div></td>
+          <td><span class="pill {{ 'green' if node.status.value == 'online' else 'red' }}">{{ node.status.value }}</span></td>
+          <td>{{ node.cpu_pct | fa }}%</td>
+          <td>{{ node.ram_pct | fa }}%</td>
+          <td>{{ node.disk_pct | fa }}%</td>
+          <td>{{ node.ping_ms | fa }}ms</td>
+          <td>{{ (node.traffic_up + node.traffic_down) | human_bytes }}</td>
+          <td>{{ (node.uptime_sec // 86400) | fa }} روز</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="8"><div class="empty">سروری ثبت نشده است.</div></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  window.__TITAN_DONUT__ = {{ segments | tojson }};
+  window.__TITAN_CHART__ = { series: {{ daily | tojson }} };
+  window.TiTaN && window.TiTaN.renderDonut(window.__TITAN_DONUT__);
+  window.TiTaN && window.TiTaN.renderTrafficChart(window.__TITAN_CHART__.series);
+</script>
+{% endblock %}

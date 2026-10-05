@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>{{ app_name }} — ورود به پنل</title>
+<link rel="stylesheet" href="/static/css/titan.css" />
+</head>
+<body>
+<div class="login-shell">
+  <div class="card login-card">
+    <div class="logo" style="background:linear-gradient(145deg,#2f76ff,#1d397b);display:grid;place-items:center;color:#fff">
+      <svg viewBox="0 0 24 24" width="26" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 2.8 19.2 7v10L12 21.2 4.8 17V7L12 2.8Z"/><path d="M12 7.2v9.6M7.2 9.7 12 12.5l4.8-2.8"/></svg>
+    </div>
+    <h1>{{ app_name }} {{ app_subtitle }}</h1>
+    <p class="sub">{% if setup %}اولین ورود — حساب مدیر کل با اطلاعات زیر ساخته می‌شود.{% else %}برای مدیریت هسته‌های Xray + Nginx وارد شوید.{% endif %}</p>
+
+    {% if error %}<div class="flash err">{{ error }}</div>{% endif %}
+
+    <form method="post" action="/login">
+      <div class="field">
+        <label>نام کاربری</label>
+        <input type="text" name="username" autocomplete="username" autofocus required />
+      </div>
+      <div class="field">
+        <label>رمز عبور</label>
+        <input type="password" name="password" autocomplete="current-password" required />
+      </div>
+      <button class="btn primary" type="submit" style="justify-content:center">ورود به پنل</button>
+    </form>
+
+    <p class="small muted" style="margin-top:18px;line-height:1.9">
+      رمز پیش‌فرض از متغیر محیطی <span class="mono">ADMIN_PASSWORD</span> خوانده می‌شود.
+      پس از ورود، از بخش تنظیمات آن را تغییر دهید.
+    </p>
+  </div>
+</div>
+</body>
+</html>

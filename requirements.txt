@@ -1,0 +1,26 @@
+# ── TiTaN Panel · core requirements ───────────────────────────────────────────
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+jinja2==3.1.5
+python-multipart==0.0.20
+
+# database
+SQLAlchemy[asyncio]==2.0.36
+aiosqlite==0.20.0
+
+# security
+argon2-cffi==23.1.0
+cryptography==44.0.0
+itsdangerous==2.2.0
+
+# http client (node agent calls)
+httpx==0.28.1
+
+# ssh bootstrap for nodes
+paramiko==3.5.0
+
+# qr codes (pure python, no PIL needed)
+segno==1.6.1
+
+# qrcode png rendering when segno PNG is not desired
+pypng==0.20220715.0

@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+{% block title %}{{ app_name }} — {{ node.name }}{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>{{ node.flag }} {{ node.name }}</h1>
+    <p class="mono">{{ node.address }} · پورت {{ node.port | fa }} · ایجنت :{{ node.agent_port | fa }} · {{ node.os_info or '—' }}</p>
+  </div>
+  <div class="head-actions">
+    <button class="btn" data-action="/nodes/{{ node.id }}/deploy">استقرار کانفیگ‌ها</button>
+    <button class="btn" data-action="/nodes/{{ node.id }}/bootstrap" data-confirm="نصب خودکار مجدد روی این سرور؟">نصب خودکار</button>
+    <button class="btn" data-action="/nodes/{{ node.id }}/regenerate-reality" data-confirm="کلیدهای REALITY بازتولید شوند؟ همه‌ی کانفیگ‌های REALITY آپدیت می‌شوند.">بازتولید کلیدها</button>
+    <a class="btn ghost" href="/nodes/{{ node.id }}/script">اسکریپت دستی نصب</a>
+    <a class="btn ghost" href="/nodes">بازگشت</a>
+  </div>
+</div>
+
+<div class="kpi-grid">
+  <div class="card kpi"><div class="kpi-icon {{ 'green' if node.status.value == 'online' else 'yellow' }}">●</div><div><b>{{ node.status.value }}</b><small>{{ node.status_message or 'بدون خطا' }}</small></div></div>
+  <div class="card kpi"><div class="kpi-icon blue">CPU</div><div><b>{{ node.cpu_pct | fa }}%</b><small>{{ node.cpu_cores | fa }} هسته · Load {{ node.load_avg or '—' }}</small></div></div>
+  <div class="card kpi"><div class="kpi-icon purple">RAM</div><div><b>{{ node.ram_pct | fa }}%</b><small>{{ node.ram_used | human_bytes }} از {{ node.ram_total | human_bytes }}</small></div></div>
+  <div class="card kpi"><div class="kpi-icon yellow">◷</div><div><b>{{ node.ping_ms | fa }}ms</b><small>پینگ پنل تا نود</small></div></div>
+</div>
+
+<div class="grid-2">
+  <section class="card card-block">
+    <header><h3>مشخصات فنی</h3></header>
+    <div class="table-wrap" style="border:0;background:transparent">
+      <table class="data" style="min-width:0">
+        <tbody>
+          <tr><td class="muted">نسخه Xray</td><td class="mono small">{{ node.xray_version or '—' }}</td></tr>
+          <tr><td class="muted">نسخه Nginx</td><td class="mono small">{{ node.nginx_version or '—' }}</td></tr>
+          <tr><td class="muted">نسخه ایجنت</td><td class="mono small">{{ node.agent_version or '—' }}</td></tr>
+          <tr><td class="muted">دیسک</td><td>{{ node.disk_used | human_bytes }} از {{ node.disk_total | human_bytes }} ({{ node.disk_pct | fa }}%)</td></tr>
+          <tr><td class="muted">آپ‌تایم</td><td>{{ (node.uptime_sec // 86400) | fa }} روز</td></tr>
+          <tr><td class="muted">ترافیک</td><td>{{ (node.traffic_up + node.traffic_down) | human_bytes }}</td></tr>
+          <tr><td class="muted">گواهی TLS</td><td>{% if node.cert_expires_at %}{{ node.cert_expires_at | short_date }} ({{ node.cert_issuer or '—' }}){% else %}بدون گواهی{% endif %}</td></tr>
+          <tr><td class="muted">آخرین تماس</td><td>{{ node.last_seen | time_ago if node.last_seen else '—' }}</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="row" style="gap:8px;margin-top:14px;flex-wrap:wrap">
+      <button class="btn sm" data-action="/nodes/{{ node.id }}/ssh-check">تست SSH</button>
+      <button class="btn sm" data-modal-open="certModal">صدور/تمدید گواهی TLS</button>
+      <button class="btn sm" data-action="/nodes/{{ node.id }}/action" data-confirm="ری‌استارت Xray روی سرور؟">ری‌استارت Xray</button>
+      <button class="btn sm" data-action="/nodes/{{ node.id }}/action" data-confirm="ری‌استارت Nginx؟">ری‌استارت Nginx</button>
+    </div>
+  </section>
+
+  <section class="card card-block">
+    <header><h3>کانفیگ‌های این سرور ({{ inbounds | length | fa }})</h3><span class="spacer"></span><a class="panel-link" href="/inbounds?node_id={{ node.id }}">مدیریت</a></header>
+    <div class="table-wrap" style="border:0;background:transparent">
+      <table class="data" style="min-width:0">
+        <thead><tr><th>نام</th><th>پروتکل</th><th>ترابری</th><th>پورت</th><th>وضعیت</th></tr></thead>
+        <tbody>
+          {% for inbound in inbounds %}
+          <tr>
+            <td class="cell-title">{{ inbound.name }}</td>
+            <td><span class="pill purple">{{ inbound.protocol.value.upper() }}</span></td>
+            <td><span class="pill blue">{{ inbound.transport.value.upper() }}</span></td>
+            <td class="mono">{{ inbound.port | fa }} → {{ inbound.internal_port | fa }}</td>
+            <td>{% if inbound.is_active %}<span class="pill green">فعال</span>{% else %}<span class="pill red">غیرفعال</span>{% endif %}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="5"><div class="empty">کانفیگی روی این سرور ساخته نشده است.</div></td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>
+
+<section class="card card-block" style="margin-top:20px">
+  <header><h3>پیش‌نمایش کانفیگ Xray (همان چیزی که روی نود مستقر می‌شود)</h3></header>
+  {% if config_preview %}
+  <pre class="block">{{ config_preview }}</pre>
+  {% else %}
+  <div class="empty">پیش‌نمایش در دسترس نیست.</div>
+  {% endif %}
+</section>
+
+<section class="card card-block" style="margin-top:20px">
+  <header><h3>تاریخچه‌ی عملیات</h3><span class="spacer"></span>
+    <button class="btn sm" onclick="loadLogs({{ node.id }})">دریافت لاگ‌های زنده</button>
+  </header>
+  <div class="table-wrap" style="border:0;background:transparent">
+    <table class="data" style="min-width:0">
+      <thead><tr><th>زمان</th><th>عملیات</th><th>وضعیت</th><th>نتیجه</th></tr></thead>
+      <tbody>
+        {% for task in tasks %}
+        <tr>
+          <td class="small">{{ task.created_at | short_date('%Y-%m-%d %H:%M') }}</td>
+          <td class="mono small">{{ task.action }}</td>
+          <td><span class="pill {{ 'green' if task.status == 'done' else ('red' if task.status == 'failed' else 'yellow') }}">{{ task.status }}</span></td>
+          <td class="small">{{ (task.result or '—')[:140] }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="4"><div class="empty">عملیاتی ثبت نشده است.</div></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <pre class="block hidden" id="liveLogs" style="margin-top:14px"></pre>
+</section>
+{% endblock %}
+
+{% block modals %}
+<div class="modal narrow" id="certModal" hidden>
+  <header><h2>صدور گواهی TLS</h2><button class="modal-close" data-modal-close>✕</button></header>
+  <form data-ajax action="/nodes/{{ node.id }}/cert" method="post">
+    <div class="modal-body">
+      <div class="field"><label>دامنه</label><input type="text" name="domain" value="{{ node.address }}" /></div>
+      <div class="field"><label>ایمیل ACME</label><input type="email" name="email" placeholder="admin@{{ node.address }}" /></div>
+      <div class="modal-note">
+        گواهی از Let's Encrypt با چالش HTTP-01 صادر می‌شود؛ پس دامنه باید به همین سرور اشاره کند و پورت ۸۰ باز باشد.
+        مسیر گواهی روی سرور: <span class="mono">/etc/titan/tls/fullchain.pem</span>
+      </div>
+    </div>
+    <footer>
+      <button class="btn primary" type="submit">صدور گواهی</button>
+      <button class="btn ghost" type="button" data-modal-close>انصراف</button>
+    </footer>
+  </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  async function loadLogs(nodeId) {
+    const box = document.getElementById("liveLogs");
+    box.classList.remove("hidden");
+    box.textContent = "در حال دریافت…";
+    try {
+      const response = await fetch("/nodes/" + nodeId + "/logs");
+      const data = await response.json();
+      if (!data.ok) {
+        box.textContent = data.message || "دریافت لاگ ناموفق بود";
+        return;
+      }
+      const parts = [];
+      Object.keys(data.logs || {}).forEach((name) => {
+        parts.push("===== " + name + " =====");
+        parts.push((data.logs[name] || []).slice(-60).join("\n"));
+      });
+      box.textContent = parts.join("\n");
+    } catch (err) {
+      box.textContent = "خطا در ارتباط با ایجنت";
+    }
+  }
+</script>
+{% endblock %}
