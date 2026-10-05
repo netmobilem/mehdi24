@@ -9,6 +9,7 @@
 set -euo pipefail
 
 DATA_DIR="${DATA_DIR:-/data}"
+DATA_DIR_FALLBACK="${DATA_DIR_FALLBACK:-/tmp/titan-data}"
 APP_USER="${APP_USER:-titan}"
 
 log() { printf '[entrypoint] %s\n' "$*"; }
@@ -23,12 +24,19 @@ ensure_data_dir() {
   fi
 
   if [ ! -w "$DATA_DIR" ]; then
-    log "WARNING: $DATA_DIR is still not writable; falling back to /tmp/titan-data"
-    DATA_DIR="/tmp/titan-data"
+    log "WARNING: $DATA_DIR is still not writable; falling back to $DATA_DIR_FALLBACK"
+    DATA_DIR="$DATA_DIR_FALLBACK"
     mkdir -p "$DATA_DIR"
     export DATA_DIR
   fi
 }
+
+# Defensive: an empty command would make `exec "$@"` a no-op that exits 0,
+# which Railway reports as "Completed" (green) instead of a crash.
+if [ "$#" -eq 0 ]; then
+  log "no start command received — using the default: python -m app.main"
+  set -- python -m app.main
+fi
 
 if [ "$(id -u)" = "0" ]; then
   ensure_data_dir
@@ -43,8 +51,8 @@ fi
 # already unprivileged: make sure the directory exists, then verify writability
 mkdir -p "$DATA_DIR" "$DATA_DIR/backups" 2>/dev/null || true
 if [ ! -w "$DATA_DIR" ]; then
-  log "WARNING: $DATA_DIR is not writable, using /tmp/titan-data"
-  export DATA_DIR="/tmp/titan-data"
+  log "WARNING: $DATA_DIR is not writable, using $DATA_DIR_FALLBACK"
+  export DATA_DIR="$DATA_DIR_FALLBACK"
   mkdir -p "$DATA_DIR"
 fi
 

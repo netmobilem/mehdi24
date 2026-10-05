@@ -155,6 +155,8 @@ async def base_context(session: AsyncSession, admin: Admin | None, active: str, 
             "bot": "https://t.me/Code_Shield",
         },
         "panel_domain": panel_domain,
+        # surfaced by the app when DATA_DIR was not writable (see settings.py)
+        "data_warning": settings.data_warning,
         "counters": {
             "users": users_total,
             "users_online": users_online,

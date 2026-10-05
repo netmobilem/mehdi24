@@ -6,10 +6,13 @@ image can run on Railway, inside Docker Compose or on a bare VPS.
 
 from __future__ import annotations
 
+import logging
 import os
 import secrets
 from dataclasses import dataclass, field
 from pathlib import Path
+
+logger = logging.getLogger("titan.settings")
 
 
 def _env(key: str, default: str = "") -> str:
@@ -61,7 +64,7 @@ class Settings:
 
     app_name: str = "TiTaN"
     app_subtitle: str = "Management Panel"
-    version: str = "1.0.1"
+    version: str = "1.0.2"
 
     data_dir: Path = field(default_factory=lambda: Path(_env("DATA_DIR", "/data")))
     port: int = field(default_factory=lambda: _env_int("PORT", 8000))
@@ -71,7 +74,14 @@ class Settings:
     # a mismatch is the #1 cause of the "Application failed to respond" error.
     # Listening on both makes the panel reachable either way; set EXTRA_PORTS=
     # (empty) to disable, or EXTRA_PORTS=8080,3000 to add more.
-    extra_ports: list[int] = field(default_factory=lambda: _env_int_list("EXTRA_PORTS", "8080"))
+    extra_ports: list[int] = field(default_factory=lambda: _env_int_list("EXTRA_PORTS", "8080,8000,3000"))
+
+    # Where to move the database when DATA_DIR cannot be written (root-owned or
+    # read-only volume). A read-only DATA_DIR used to abort startup — uvicorn
+    # then exited with code 0, which Railway reads as "Completed" and never
+    # restarts, leaving the domain on "Application failed to respond".
+    data_dir_fallback: Path = field(default_factory=lambda: Path(_env("DATA_DIR_FALLBACK", "/tmp/titan-data")))
+    data_warning: str = ""
 
     panel_domain: str = field(default_factory=lambda: _env("PANEL_DOMAIN") or _env("RAILWAY_PUBLIC_DOMAIN"))
     admin_username: str = field(default_factory=lambda: _env("ADMIN_USERNAME", "admin"))
@@ -116,6 +126,49 @@ class Settings:
     def ensure_dirs(self) -> None:
         self.data_dir.mkdir(parents=True, exist_ok=True)
         (self.data_dir / "backups").mkdir(parents=True, exist_ok=True)
+
+    # ── data directory robustness ────────────────────────────────────────────
+    @staticmethod
+    def _probe(path: Path) -> str:
+        """Return "" when *path* is usable, otherwise the error message."""
+        try:
+            path.mkdir(parents=True, exist_ok=True)
+            (path / "backups").mkdir(parents=True, exist_ok=True)
+            probe = path / ".titan-write-test"
+            probe.write_text("ok", encoding="utf-8")
+            probe.unlink()
+        except OSError as exc:
+            return f"{path}: {exc.strerror or exc}"
+        return ""
+
+    def use_fallback_data_dir(self, reason: str) -> Path:
+        """Move the database to DATA_DIR_FALLBACK and record why."""
+        problem = self._probe(self.data_dir_fallback)
+        if problem:
+            raise RuntimeError(
+                f"data directory unusable — {reason}; fallback also failed ({problem})"
+            )
+        logger.warning(
+            "=" * 72 + "\nDATA_DIR PROBLEM — %s\nusing %s instead; data will NOT persist across "
+            "deploys. Attach a Railway volume at %s (owned by uid 10001) to keep data.\n%s",
+            reason,
+            self.data_dir_fallback,
+            self.data_dir,
+            "=" * 72,
+        )
+        self.data_warning = f"{reason} — using {self.data_dir_fallback} (data is not persistent)"
+        self.data_dir = self.data_dir_fallback
+        return self.data_dir
+
+    def ensure_writable_data_dir(self) -> Path:
+        """Guarantee a writable DATA_DIR, falling back when the volume is bad."""
+        problem = self._probe(self.data_dir)
+        if not problem:
+            return self.data_dir
+        if self.data_dir == self.data_dir_fallback:
+            raise RuntimeError(f"data directory unusable and no fallback left ({problem})")
+        logger.error("data directory is not writable — %s", problem)
+        return self.use_fallback_data_dir(problem)
 
     def listen_ports(self) -> list[int]:
         """Ordered, de-duplicated list of TCP ports the panel binds."""

@@ -16,6 +16,7 @@
     {% include "partials/topbar.html" %}
     <section class="content">
       {% if notice %}<div class="flash {{ 'err' if notice_level == 'err' else 'ok' }}" data-flash>{{ notice }}</div>{% endif %}
+      {% if data_warning %}<div class="flash err" style="border-inline-start-color:#f6bf3d">⚠ {{ data_warning }}</div>{% endif %}
       {% block content %}{% endblock %}
     </section>
   </main>

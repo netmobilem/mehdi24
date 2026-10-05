@@ -1,8 +1,9 @@
 # ── TiTaN Panel · production image ───────────────────────────────────────────
 #  Works on Railway, Fly.io, Render and plain Docker/VPS.
 #  Data lives in $DATA_DIR (default /data) — attach a volume there.
-#  Listens on $PORT *and* $EXTRA_PORTS (8080) so Railway's "target port"
-#  always has a matching listener.
+#  Listens on $PORT *and* $EXTRA_PORTS (8080/8000/3000) so Railway's "target
+#  port" always has a matching listener. Startup never dies silently: a bad
+#  volume falls back to $DATA_DIR_FALLBACK and a fatal setup exits non-zero.
 FROM python:3.12-slim AS base
 
 ENV PYTHONUNBUFFERED=1 \
@@ -10,7 +11,7 @@ ENV PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     DATA_DIR=/data \
     PORT=8000 \
-    EXTRA_PORTS=8080 \
+    EXTRA_PORTS=8080,8000,3000 \
     APP_USER=titan
 
 WORKDIR /app
@@ -38,7 +39,7 @@ RUN useradd --create-home --uid 10001 --shell /usr/sbin/nologin titan \
  && mkdir -p /data/backups \
  && chown -R titan:titan /app /data
 
-EXPOSE 8000 8080
+EXPOSE 8000 8080 3000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=25s --retries=3 \
   CMD curl -fsS "http://127.0.0.1:${PORT:-8000}/healthz" || exit 1
